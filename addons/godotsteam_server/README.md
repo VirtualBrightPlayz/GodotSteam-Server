@@ -8,7 +8,7 @@ Additional flavors include:
 - [GDExtension](https://github.com/CoaguCo-Industries/GodotSteam/tree/gdextension)
 - [Server 3.x](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/server3)
 - [Server 4.x](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/server4)
-- [Server GDNative](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/gdextension)
+- [Server GDExtension](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/gdextension)
 
 Documentation
 ----------
@@ -40,7 +40,7 @@ Known Issues
 Quick How-To
 ----------
 Obtain the plugin through one of two ways:
-- Visit the [Godot Asset Library]() either through the website or in the editor and search for GodotSteam.
+- Visit the [Godot Asset Library](https://godotengine.org/asset-library/asset/2222) either through the website or in the editor and search for GodotSteam.
 - Download this repo and unzip it into the base of your game project.
 
 Go into **Project > Settings > Plugins** and activate the plugin.

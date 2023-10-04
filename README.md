@@ -40,7 +40,7 @@ Known Issues
 Quick How-To
 ----------
 Obtain the plugin through one of two ways:
-- Visit the [Godot Asset Library]() either through the website or in the editor and search for GodotSteam.
+- Visit the [Godot Asset Library](https://godotengine.org/asset-library/asset/2222) either through the website or in the editor and search for GodotSteam.
 - Download this repo and unzip it into the base of your game project.
 
 Go into **Project > Settings > Plugins** and activate the plugin.
