@@ -1,0 +1,112 @@
+on:
+  workflow_call:
+    inputs:
+      steamworks_sdk_tag:
+        required: true
+        type: string
+      godot_tag:
+        required: true
+        type: string
+    secrets:
+      steamworks_sdk_repo:
+        required: true
+      steamworks_sdk_repo_token:
+        required: true
+
+env:
+  base_branch: gdnative
+
+jobs:
+  build_macos:
+    strategy:
+      matrix:
+        architecture: ['x86_64', 'arm64']
+
+    runs-on: macos-latest
+
+    steps:
+      # Checkout current source of GodotSteam Server
+      - name: Checkout GodotSteam Server
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Build Tools
+        run: |
+          brew install scons yasm
+
+      # Checkout Steamworks SDK
+      - name: Checkout Steamworks SDK
+        uses: actions/checkout@v3
+        with:
+          path: "steamworks"
+          repository: ${{ secrets.steamworks_sdk_repo }}
+          token: ${{ secrets.steamworks_sdk_repo_token }}
+          ref: ${{ inputs.steamworks_sdk_tag }}
+
+      - name: Copy Steamworks
+        run: |
+          cp -r steamworks/public godotsteam_server/sdk
+          cp -r steamworks/redistributable_bin godotsteam_server/sdk
+          ls -la 
+          ls -la godotsteam_server/sdk
+
+      # Compile Godot-CPP
+      - name: Compile godot-cpp
+        run: |
+          cd godot-cpp
+          scons platform=osx macos_arch=${{ matrix.architecture }} generate_bindings=yes target=release
+          ls -al
+          ls -al bin/
+          echo "Done building godot-cpp, and showing output"
+          cd ..
+          mkdir bin
+          ls
+
+      - name: Compile GodotSteam Server
+        run: |
+          scons platform=osx macos_arch=${{ matrix.architecture }} production=yes target=release
+
+      - name: Print compiled
+        run: |
+          ls -al
+          ls -al bin/osx
+          cd bin/osx 
+          mv libgodotsteam.dylib libgodotsteam-${{ matrix.architecture }}.dylib
+          cd ..
+
+      - name: Upload macOS dylib
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-plugin-${{ matrix.architecture }}
+          path: bin/osx/libgodotsteam_server-${{ matrix.architecture }}.dylib
+          if-no-files-found: error
+          retention-days: 1
+  
+  bundle_universal:
+    needs: [build_macos]
+
+    runs-on: macos-latest
+
+    steps:
+      - name: Download x86_64
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-plugin-x86_64
+          path: dylibs
+
+      - name: Download arm64
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-plugin-arm64
+          path: dylibs
+
+      - name: Bundle together
+        run: |
+          cd dylibs
+          lipo libgodotsteam_server-x86_64.dylib libgodotsteam_server-arm64.dylib -output libgodotsteam_server.dylib -create
+      - uses: actions/upload-artifact@v3
+        name: Upload final dylib
+        with:
+          name: macos-plugin-universal
+          path: dylibs/libgodotsteam_server.dylib
