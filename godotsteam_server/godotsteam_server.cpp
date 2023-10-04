@@ -162,7 +162,7 @@ uint64_t SteamServer::getServerSteamID(){
 
 // Initialize SteamGameServer client and interface objects, and set server properties which may not be changed.
 // After calling this function, you should set any additional server parameters, and then logOnAnonymous() or logOn().
-bool SteamServer::serverInit(const String& ip, uint16 game_port, uint16 query_port, int server_mode, const String& version_number){
+bool SteamServer::serverInit(String ip, uint16 game_port, uint16 query_port, int server_mode, String version_number){
 	// Convert the server mode back
 	EServerMode mode;
 	if(server_mode == 1){
@@ -193,7 +193,7 @@ bool SteamServer::serverInit(const String& ip, uint16 game_port, uint16 query_po
 // Initialize SteamGameServer client and interface objects, and set server properties which may not be changed.
 // After calling this function, you should set any additional server parameters, and then logOnAnonymous() or logOn().
 // On success STEAM_API_INIT_RESULT_OK is returned.  Otherwise, if error_message is non-NULL, it will receive a non-localized message that explains the reason for the failure
-Dictionary SteamServer::serverInitEx(const String& ip, uint16 game_port, uint16 query_port, int server_mode, const String& version_number){
+Dictionary SteamServer::serverInitEx(String ip, uint16 game_port, uint16 query_port, int server_mode, String version_number){
 	Dictionary server_initialize;
 	char error_message[STEAM_MAX_ERROR_MESSAGE] = "IP address is invalid";
 	ESteamAPIInitResult initialize_result = k_ESteamAPIInitResult_FailedGeneric;
@@ -214,7 +214,7 @@ Dictionary SteamServer::serverInitEx(const String& ip, uint16 game_port, uint16 
 		char ip_bytes[4];
 		sscanf(ip.utf8().get_data(), "%hhu.%hhu.%hhu.%hhu", &ip_bytes[3], &ip_bytes[2], &ip_bytes[1], &ip_bytes[0]);
 		uint32_t ip4 = ip_bytes[0] | ip_bytes[1] << 8 | ip_bytes[2] << 16 | ip_bytes[3] << 24;
-		initialize_result = SteamGameServer_InitEx(ip4, (uint16)game_port, (uint16)query_port, mode, version_number.utf8().get_data(), &error_message);
+		initialize_result = SteamGameServer_InitEx(ip4, game_port, query_port, mode, version_number.utf8().get_data(), &error_message);
 	}
 	server_initialize["status"] = initialize_result;
 	server_initialize["verbal"] = error_message;
@@ -240,7 +240,7 @@ void SteamServer::serverShutdown(){
 // NOTE: The following, if set, must be set before calling LogOn; they may not be changed after.
 //
 // Game product identifier; currently used by the master server for version checking purposes.
-void SteamServer::setProduct(const String& product){
+void SteamServer::setProduct(String product){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -248,7 +248,7 @@ void SteamServer::setProduct(const String& product){
 }
 
 // Description of the game; required field and is displayed in the Steam server browser.
-void SteamServer::setGameDescription(const String& description){
+void SteamServer::setGameDescription(String description){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -256,7 +256,7 @@ void SteamServer::setGameDescription(const String& description){
 }
 
 // If your game is a mod, pass the string that identifies it. Default is empty meaning the app is the original game.
-void SteamServer::setModDir(const String& mod_directory){
+void SteamServer::setModDir(String mod_directory){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -274,7 +274,7 @@ void SteamServer::setDedicatedServer(bool dedicated){
 // NOTE: The following are login functions.
 //
 // Begin process to login to a persistent game server account. You need to register for callbacks to determine the result of this operation.
-void SteamServer::logOn(const String& token){
+void SteamServer::logOn(String token){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -347,7 +347,7 @@ void SteamServer::setBotPlayerCount(int bots){
 }
 
 // Set the naem of the server as it will appear in the server browser.
-void SteamServer::setServerName(const String& name){
+void SteamServer::setServerName(String name){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -355,7 +355,7 @@ void SteamServer::setServerName(const String& name){
 }
 
 // Set name of map to report in server browser.
-void SteamServer::setMapName(const String& map){
+void SteamServer::setMapName(String map){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -379,7 +379,7 @@ void SteamServer::setSpectatorPort(uint16 port){
 }
 
 // Name of spectator server. Only used if spectator port is non-zero.
-void SteamServer::setSpectatorServerName(const String& name){
+void SteamServer::setSpectatorServerName(String name){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -395,7 +395,7 @@ void SteamServer::clearAllKeyValues(){
 }
 
 // Call this to add/update a key/value pair.
-void SteamServer::setKeyValue(const String& key, const String& value){
+void SteamServer::setKeyValue(String key, String value){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -403,7 +403,7 @@ void SteamServer::setKeyValue(const String& key, const String& value){
 }
 
 // Set a string defining game tags for this server; optional. Allows users to filter in matchmaking/server browser.
-void SteamServer::setGameTags(const String& tags){
+void SteamServer::setGameTags(String tags){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -411,7 +411,7 @@ void SteamServer::setGameTags(const String& tags){
 }
 
 // Set a string defining game data for this server; optional. Allows users to filter in matchmaking/server browser.
-void SteamServer::setGameData(const String& data){
+void SteamServer::setGameData(String data){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -419,7 +419,7 @@ void SteamServer::setGameData(const String& data){
 }
 
 // Region identifier; optional. Default is empty meaning 'world'.
-void SteamServer::setRegion(const String& region){
+void SteamServer::setRegion(String region){
 	if(SteamGameServer() == NULL){
 		return;
 	}
@@ -429,7 +429,7 @@ void SteamServer::setRegion(const String& region){
 // NOTE: These functions are player list management / authentication.
 //
 // Retrieve ticket to be sent to the entity who wishes to authenticate you (using BeginAuthSession API).
-Dictionary SteamServer::getAuthSessionTicket(const String& identity_reference){
+Dictionary SteamServer::getAuthSessionTicket(String identity_reference){
 	// Create the dictionary to use
 	Dictionary auth_ticket;
 	if(SteamGameServer() != NULL){
@@ -500,7 +500,7 @@ bool SteamServer::requestUserGroupStatus(uint64_t steam_id, int group_id){
 // NOTE: These are in GameSocketShare mode, where instead of ISteamGameServer creating sockets to talk to master server, it lets the game use its socket to forward messages back and forth.
 //
 // These are used when you've elected to multiplex the game server's UDP socket rather than having the master server updater use its own sockets.
-Dictionary SteamServer::handleIncomingPacket(int packet, const String& ip, uint16 port){
+Dictionary SteamServer::handleIncomingPacket(int packet, String ip, uint16 port){
 	Dictionary result;
 	if(SteamGameServer() == NULL){
 		return result;
@@ -586,7 +586,7 @@ void SteamServer::computeNewPlayerCompatibility(uint64_t steam_id){
 /////////////////////////////////////////////////
 //
 // Resets the unlock status of an achievement for the specified user.
-bool SteamServer::clearUserAchievement(uint64_t steam_id, const String& name){
+bool SteamServer::clearUserAchievement(uint64_t steam_id, String name){
 	if(SteamGameServerStats() == NULL){
 		return false;
 	}
@@ -595,7 +595,7 @@ bool SteamServer::clearUserAchievement(uint64_t steam_id, const String& name){
 }
 
 // Gets the unlock status of the Achievement.
-Dictionary SteamServer::getUserAchievement(uint64_t steam_id, const String& name){
+Dictionary SteamServer::getUserAchievement(uint64_t steam_id, String name){
 	// Set dictionary to fill in
 	Dictionary achievement;
 	if(SteamGameServerStats() == NULL){
@@ -613,7 +613,7 @@ Dictionary SteamServer::getUserAchievement(uint64_t steam_id, const String& name
 }
 
 // Gets the current value of the a stat for the specified user.
-uint32_t SteamServer::getUserStatInt(uint64_t steam_id, const String& name){
+uint32_t SteamServer::getUserStatInt(uint64_t steam_id, String name){
 	if(SteamGameServerStats() != NULL){
 		CSteamID userID = (uint64)steam_id;
 		int32 value = 0;
@@ -625,7 +625,7 @@ uint32_t SteamServer::getUserStatInt(uint64_t steam_id, const String& name){
 }
 
 // Gets the current value of the a stat for the specified user.
-float SteamServer::getUserStatFloat(uint64_t steam_id, const String& name){
+float SteamServer::getUserStatFloat(uint64_t steam_id, String name){
 	if(SteamGameServerStats() != NULL){
 		CSteamID userID = (uint64)steam_id;
 		float value = 0.0;
@@ -646,7 +646,7 @@ void SteamServer::requestUserStats(uint64_t steam_id){
 }
 
 // Unlocks an achievement for the specified user.
-bool SteamServer::setUserAchievement(uint64_t steam_id, const String& name){
+bool SteamServer::setUserAchievement(uint64_t steam_id, String name){
 	if(SteamGameServerStats() == NULL){
 		return false;
 	}
@@ -655,7 +655,7 @@ bool SteamServer::setUserAchievement(uint64_t steam_id, const String& name){
 }
 
 // Sets / updates the value of a given stat for the specified user.
-bool SteamServer::setUserStatInt(uint64_t steam_id, const String& name, int32 stat){
+bool SteamServer::setUserStatInt(uint64_t steam_id, String name, int32 stat){
 	if(SteamGameServerStats() == NULL){
 		return false;
 	}
@@ -664,7 +664,7 @@ bool SteamServer::setUserStatInt(uint64_t steam_id, const String& name, int32 st
 }
 
 // Sets / updates the value of a given stat for the specified user.
-bool SteamServer::setUserStatFloat(uint64_t steam_id, const String& name, float stat){
+bool SteamServer::setUserStatFloat(uint64_t steam_id, String name, float stat){
 	if(SteamGameServerStats() == NULL){
 		return false;
 	}
@@ -681,7 +681,7 @@ void SteamServer::storeUserStats(uint64_t steam_id){
 }
 
 // Updates an AVGRATE stat with new values for the specified user.
-bool SteamServer::updateUserAvgRateStat(uint64_t steam_id, const String& name, float this_session, double session_length){
+bool SteamServer::updateUserAvgRateStat(uint64_t steam_id, String name, float this_session, double session_length){
 	if(SteamGameServerStats() == NULL){
 		return false;
 	}
@@ -704,7 +704,7 @@ uint32_t SteamServer::createCookieContainer(bool allow_responses_to_modify){
 }
 
 // Initializes a new HTTP request.
-uint32_t SteamServer::createHTTPRequest(int request_method, const String& absolute_url){
+uint32_t SteamServer::createHTTPRequest(int request_method, String absolute_url){
 	if(SteamHTTP() != NULL){
 		return SteamHTTP()->CreateHTTPRequest((EHTTPMethod)request_method, absolute_url.utf8().get_data());
 	}
@@ -757,7 +757,7 @@ uint32 SteamServer::getHTTPResponseBodySize(uint32 request_handle){
 }
 
 // Checks if a header is present in an HTTP response and returns its size.
-uint32 SteamServer::getHTTPResponseHeaderSize(uint32 request_handle, const String& header_name){
+uint32 SteamServer::getHTTPResponseHeaderSize(uint32 request_handle, String header_name){
 	uint32 response_header_size = 0;
 	if(SteamHTTP() != NULL){
 		SteamHTTP()->GetHTTPResponseHeaderSize(request_handle, header_name.utf8().get_data(), &response_header_size);
@@ -766,7 +766,7 @@ uint32 SteamServer::getHTTPResponseHeaderSize(uint32 request_handle, const Strin
 }
 
 // Gets a header value from an HTTP response.
-uint8 SteamServer::getHTTPResponseHeaderValue(uint32 request_handle, const String& header_name, uint32 buffer_size){
+uint8 SteamServer::getHTTPResponseHeaderValue(uint32 request_handle, String header_name, uint32 buffer_size){
 	uint8 value_buffer = 0;
 	if(SteamHTTP() != NULL){
 		SteamHTTP()->GetHTTPResponseHeaderValue(request_handle, header_name.utf8().get_data(), &value_buffer, buffer_size);
@@ -826,7 +826,7 @@ bool SteamServer::sendHTTPRequestAndStreamResponse(uint32 request_handle){
 }
 
 // Adds a cookie to the specified cookie container that will be used with future requests.
-bool SteamServer::setHTTPCookie(uint32 cookie_handle, const String& host, const String& url, const String& cookie){
+bool SteamServer::setHTTPCookie(uint32 cookie_handle, String host, String url, String cookie){
 	if(SteamHTTP() == NULL){
 		return false;
 	}
@@ -858,7 +858,7 @@ bool SteamServer::setHTTPRequestCookieContainer(uint32 request_handle, uint32 co
 }
 
 // Set a GET or POST parameter value on the HTTP request. Must be called prior to sending the request.
-bool SteamServer::setHTTPRequestGetOrPostParameter(uint32 request_handle, const String& name, const String& value){
+bool SteamServer::setHTTPRequestGetOrPostParameter(uint32 request_handle, String name, String value){
 	if(SteamHTTP() == NULL){
 		return false;
 	}
@@ -866,7 +866,7 @@ bool SteamServer::setHTTPRequestGetOrPostParameter(uint32 request_handle, const 
 }
 
 // Set a request header value for the HTTP request. Must be called before sending the request.
-bool SteamServer::setHTTPRequestHeaderValue(uint32 request_handle, const String& header_name, const String& header_value){
+bool SteamServer::setHTTPRequestHeaderValue(uint32 request_handle, String header_name, String header_value){
 	if(SteamHTTP() == NULL){
 		return false;
 	}
@@ -882,7 +882,7 @@ bool SteamServer::setHTTPRequestNetworkActivityTimeout(uint32 request_handle, ui
 }
 
 // Sets the body for an HTTP Post request.
-uint8 SteamServer::setHTTPRequestRawPostBody(uint32 request_handle, const String& content_type, uint32 body_length){
+uint8 SteamServer::setHTTPRequestRawPostBody(uint32 request_handle, String content_type, uint32 body_length){
 	uint8 body = 0;
 	if(SteamHTTP()){
 		SteamHTTP()->SetHTTPRequestRawPostBody(request_handle, content_type.utf8().get_data(), &body, body_length);
@@ -899,7 +899,7 @@ bool SteamServer::setHTTPRequestRequiresVerifiedCertificate(uint32 request_handl
 }
 
 // Set additional user agent info for a request.
-bool SteamServer::setHTTPRequestUserAgentInfo(uint32 request_handle, const String& user_agent_info){
+bool SteamServer::setHTTPRequestUserAgentInfo(uint32 request_handle, String user_agent_info){
 	if(SteamHTTP() == NULL){
 		return false;
 	}
@@ -1029,7 +1029,7 @@ int32 SteamServer::getAllItems(){
 }
 
 // Gets a string property from the specified item definition.  Gets a property value for a specific item definition.
-String SteamServer::getItemDefinitionProperty(uint32 definition, const String& name){
+String SteamServer::getItemDefinitionProperty(uint32 definition, String name){
 	if(SteamInventory() == NULL){
 		return "";
 	}
@@ -1099,7 +1099,7 @@ uint32 SteamServer::getNumItemsWithPrices(){
 }
 
 // Gets the dynamic properties from an item in an inventory result set.
-String SteamServer::getResultItemProperty(uint32 index, const String& name, int32 this_inventory_handle){
+String SteamServer::getResultItemProperty(uint32 index, String name, int32 this_inventory_handle){
 	if(SteamInventory() != NULL){
 		// Set up variables to fill
 		uint32 buffer_size = 256;
@@ -1307,7 +1307,7 @@ int32 SteamServer::submitUpdateProperties(uint64_t this_inventory_update_handle)
 }
 
 // Removes a dynamic property for the given item.
-bool SteamServer::removeProperty(uint64_t item_id, const String& name, uint64_t this_inventory_update_handle){
+bool SteamServer::removeProperty(uint64_t item_id, String name, uint64_t this_inventory_update_handle){
 	if(SteamInventory() == NULL){
 		return false;
 	}
@@ -1319,7 +1319,7 @@ bool SteamServer::removeProperty(uint64_t item_id, const String& name, uint64_t 
 }
 
 // Sets a dynamic property for the given item. Supported value types are strings.
-bool SteamServer::setPropertyString(uint64_t item_id, const String& name, const String& value, uint64_t this_inventory_update_handle){
+bool SteamServer::setPropertyString(uint64_t item_id, String name, String value, uint64_t this_inventory_update_handle){
 	if(SteamInventory() == NULL){
 		return false;
 	}
@@ -1331,7 +1331,7 @@ bool SteamServer::setPropertyString(uint64_t item_id, const String& name, const 
 }
 
 // Sets a dynamic property for the given item. Supported value types are boolean.
-bool SteamServer::setPropertyBool(uint64_t item_id, const String& name, bool value, uint64_t this_inventory_update_handle){
+bool SteamServer::setPropertyBool(uint64_t item_id, String name, bool value, uint64_t this_inventory_update_handle){
 	if(SteamInventory() == NULL){
 		return false;
 	}
@@ -1343,7 +1343,7 @@ bool SteamServer::setPropertyBool(uint64_t item_id, const String& name, bool val
 }
 
 // Sets a dynamic property for the given item. Supported value types are 64 bit integers.
-bool SteamServer::setPropertyInt(uint64_t item_id, const String& name, uint64_t value, uint64_t this_inventory_update_handle){
+bool SteamServer::setPropertyInt(uint64_t item_id, String name, uint64_t value, uint64_t this_inventory_update_handle){
 	if(SteamInventory() == NULL){
 		return false;
 	}
@@ -1355,7 +1355,7 @@ bool SteamServer::setPropertyInt(uint64_t item_id, const String& name, uint64_t 
 }
 
 // Sets a dynamic property for the given item. Supported value types are 32 bit floats.
-bool SteamServer::setPropertyFloat(uint64_t item_id, const String& name, float value, uint64_t this_inventory_update_handle){
+bool SteamServer::setPropertyFloat(uint64_t item_id, String name, float value, uint64_t this_inventory_update_handle){
 	if(SteamInventory() == NULL){
 		return false;
 	}
@@ -1475,7 +1475,7 @@ bool SteamServer::sendP2PPacket(uint64_t steam_id_remote, PoolByteArray data, in
 /////////////////////////////////////////////////
 //
 // AcceptSessionWithUser() should only be called in response to a SteamP2PSessionRequest_t callback SteamP2PSessionRequest_t will be posted if another user tries to send you a message, and you haven't tried to talk to them.
-bool SteamServer::acceptSessionWithUser(const String& identity_reference){
+bool SteamServer::acceptSessionWithUser(String identity_reference){
 	if(SteamNetworkingMessages() == NULL){
 		return false;
 	}
@@ -1483,7 +1483,7 @@ bool SteamServer::acceptSessionWithUser(const String& identity_reference){
 }
 
 // Call this  when you're done talking to a user on a specific channel. Once all open channels to a user have been closed, the open session to the user will be closed, and any new data from this user will trigger a SteamP2PSessionRequest_t callback.
-bool SteamServer::closeChannelWithUser(const String& identity_reference, int channel){
+bool SteamServer::closeChannelWithUser(String identity_reference, int channel){
 	if(SteamNetworkingMessages() == NULL){
 		return false;
 	}
@@ -1491,7 +1491,7 @@ bool SteamServer::closeChannelWithUser(const String& identity_reference, int cha
 }
 
 // Call this when you're done talking to a user to immediately free up resources under-the-hood.
-bool SteamServer::closeSessionWithUser(const String& identity_reference){
+bool SteamServer::closeSessionWithUser(String identity_reference){
 	if(SteamNetworkingMessages() == NULL){
 		return false;
 	}
@@ -1499,7 +1499,7 @@ bool SteamServer::closeSessionWithUser(const String& identity_reference){
 }
 
 // Returns information about the latest state of a connection, if any, with the given peer.
-Dictionary SteamServer::getSessionConnectionInfo(const String& identity_reference, bool get_connection, bool get_status){
+Dictionary SteamServer::getSessionConnectionInfo(String identity_reference, bool get_connection, bool get_status){
 	Dictionary connection_info;
 	if(SteamNetworkingMessages() != NULL){
 		SteamNetConnectionInfo_t this_info;
@@ -1587,7 +1587,7 @@ Array SteamServer::receiveMessagesOnChannel(int channel, int max_messages){
 }
 
 // Sends a message to the specified host. If we don't already have a session with that user, a session is implicitly created. There might be some handshaking that needs to happen before we can actually begin sending message data.
-int SteamServer::sendMessageToUser(const String& identity_reference, const PoolByteArray data, int flags, int channel){
+int SteamServer::sendMessageToUser(String identity_reference, const PoolByteArray data, int flags, int channel){
 	if(SteamNetworkingMessages() == NULL){
 		return 0;
 	}
@@ -1600,7 +1600,7 @@ int SteamServer::sendMessageToUser(const String& identity_reference, const PoolB
 /////////////////////////////////////////////////
 //
 // Creates a "server" socket that listens for clients to connect to by calling ConnectByIPAddress, over ordinary UDP (IPv4 or IPv6)
-uint32 SteamServer::createListenSocketIP(const String& ip_reference, Array options){
+uint32 SteamServer::createListenSocketIP(String ip_reference, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
@@ -1622,7 +1622,7 @@ uint32 SteamServer::createListenSocketP2P(int virtual_port, Array options){
 }
 
 // Begin connecting to a server that is identified using a platform-specific identifier. This uses the default rendezvous service, which depends on the platform and library configuration. (E.g. on Steam, it goes through the steam backend.) The traffic is relayed over the Steam Datagram Relay network.
-uint32 SteamServer::connectP2P(const String& identity_reference, int virtual_port, Array options){
+uint32 SteamServer::connectP2P(String identity_reference, int virtual_port, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
@@ -1630,7 +1630,7 @@ uint32 SteamServer::connectP2P(const String& identity_reference, int virtual_por
 }
 
 // Begin connecting to a server listen socket that is identified using an [ip-address]:[port], i.e. 127.0.0.1:27015. Used with createListenSocketIP
-uint32 SteamServer::connectByIPAddress(const String& ip_address_with_port, Array options){
+uint32 SteamServer::connectByIPAddress(String ip_address_with_port, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
@@ -1643,7 +1643,7 @@ uint32 SteamServer::connectByIPAddress(const String& ip_address_with_port, Array
 }
 
 // Client call to connect to a server hosted in a Valve data center, on the specified virtual port. You must have placed a ticket for this server into the cache, or else this connect attempt will fail!
-uint32 SteamServer::connectToHostedDedicatedServer(const String& identity_reference, int virtual_port, Array options){
+uint32 SteamServer::connectToHostedDedicatedServer(String identity_reference, int virtual_port, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
@@ -1662,7 +1662,7 @@ int SteamServer::acceptConnection(uint32 connection_handle){
 }
 
 // Disconnects from the remote host and invalidates the connection handle. Any unread data on the connection is discarded.
-bool SteamServer::closeConnection(uint32 peer, int reason, const String& debug_message, bool linger){
+bool SteamServer::closeConnection(uint32 peer, int reason, String debug_message, bool linger){
 	if(SteamNetworkingSockets() == NULL){
 		return false;
 	}
@@ -1678,7 +1678,7 @@ bool SteamServer::closeListenSocket(uint32 socket){
 }
 
 // Create a pair of connections that are talking to each other, e.g. a loopback connection. This is very useful for testing, or so that your client/server code can work the same even when you are running a local "server".
-Dictionary SteamServer::createSocketPair(bool loopback, const String& identity_reference1, const String& identity_reference2){
+Dictionary SteamServer::createSocketPair(bool loopback, String identity_reference1, String identity_reference2){
 	// Create a dictionary to populate
 	Dictionary connection_pair;
 	if(SteamNetworkingSockets() != NULL){
@@ -1890,7 +1890,7 @@ uint64_t SteamServer::getConnectionUserData(uint32 peer){
 }
 
 // Set a name for the connection, used mostly for debugging
-void SteamServer::setConnectionName(uint32 peer, const String& name){
+void SteamServer::setConnectionName(uint32 peer, String name){
 	if(SteamNetworkingSockets() != NULL){
 		SteamNetworkingSockets()->SetConnectionName((HSteamNetConnection)peer, name.utf8().get_data());
 	}
@@ -2023,7 +2023,7 @@ uint32 SteamServer::createHostedDedicatedServerListenSocket(int port, Array opti
 }
 
 // Generate an authentication blob that can be used to securely login with your backend, using SteamDatagram_ParseHostedServerLogin. (See steamdatagram_gamecoordinator.h)
-//int SteamServer::getGameCoordinatorServerLogin(const String& app_data){
+//int SteamServer::getGameCoordinatorServerLogin(String app_data){
 //	int result = 2;
 //	if(SteamNetworkingSockets() != NULL){	
 //		SteamDatagramGameCoordinatorServerLogin *server_login = new SteamDatagramGameCoordinatorServerLogin;
@@ -2142,7 +2142,7 @@ Dictionary SteamServer::setCertificate(const PoolByteArray& certificate){
 // Reset the identity associated with this instance. Any open connections are closed.  Any previous certificates, etc are discarded.
 // You can pass a specific identity that you want to use, or you can pass NULL, in which case the identity will be invalid until you set it using SetCertificate.
 // NOTE: This function is not actually supported on Steam!  It is included for use on other platforms where the active user can sign out and a new user can sign in.
-void SteamServer::resetIdentity(const String& identity_reference){
+void SteamServer::resetIdentity(String identity_reference){
 	if(SteamNetworkingSockets() != NULL){
 		SteamNetworkingIdentity resetting_identity = networking_identities[identity_reference.utf8().get_data()];
 		SteamNetworkingSockets()->ResetIdentity(&resetting_identity);
@@ -2235,7 +2235,7 @@ void SteamServer::createFakeUDPPort(int fake_server_port_index){
 /////////////////////////////////////////////////
 //
 // Create a new network identity and store it for use
-bool SteamServer::addIdentity(const String& reference_name){
+bool SteamServer::addIdentity(String reference_name){
 	networking_identities[reference_name.utf8().get_data()] = SteamNetworkingIdentity();
 	if(networking_identities.count(reference_name.utf8().get_data()) > 0){
 		return true;
@@ -2244,7 +2244,7 @@ bool SteamServer::addIdentity(const String& reference_name){
 }
 
 // Clear a network identity's data
-void SteamServer::clearIdentity(const String& reference_name){
+void SteamServer::clearIdentity(String reference_name){
 	networking_identities[reference_name.utf8().get_data()].Clear();
 }
 
@@ -2265,33 +2265,33 @@ Array SteamServer::getIdentities(){
 
 
 // Return true if we are the invalid type.  Does not make any other validity checks (e.g. is SteamID actually valid)
-bool SteamServer::isIdentityInvalid(const String& reference_name){
+bool SteamServer::isIdentityInvalid(String reference_name){
 	return networking_identities[reference_name.utf8().get_data()].IsInvalid();
 }
 
 // Set a 32-bit Steam ID
-void SteamServer::setIdentitySteamID(const String& reference_name, uint32 steam_id){
+void SteamServer::setIdentitySteamID(String reference_name, uint32 steam_id){
 	networking_identities[reference_name.utf8().get_data()].SetSteamID(createSteamID(steam_id));
 }
 
 // Return CSteamID (!IsValid()) if identity is not a SteamID
-uint32 SteamServer::getIdentitySteamID(const String& reference_name){
+uint32 SteamServer::getIdentitySteamID(String reference_name){
 	CSteamID steam_id = networking_identities[reference_name.utf8().get_data()].GetSteamID();
 	return steam_id.ConvertToUint64();
 }
 
 // Takes SteamID as raw 64-bit number
-void SteamServer::setIdentitySteamID64(const String& reference_name, uint64_t steam_id){
+void SteamServer::setIdentitySteamID64(String reference_name, uint64_t steam_id){
 	networking_identities[reference_name.utf8().get_data()].SetSteamID64(steam_id);
 }
 
 // Returns 0 if identity is not SteamID
-uint64_t SteamServer::getIdentitySteamID64(const String& reference_name){
+uint64_t SteamServer::getIdentitySteamID64(String reference_name){
 	return networking_identities[reference_name.utf8().get_data()].GetSteamID64();
 }
 
 // Set to specified IP:port.
-bool SteamServer::setIdentityIPAddr(const String& reference_name, const String& ip_address_name){
+bool SteamServer::setIdentityIPAddr(String reference_name, String ip_address_name){
 	if(ip_addresses.count(ip_address_name.utf8().get_data()) > 0){
 		const SteamNetworkingIPAddr this_address = ip_addresses[ip_address_name.utf8().get_data()];
 		networking_identities[reference_name.utf8().get_data()].SetIPAddr(this_address);
@@ -2301,7 +2301,7 @@ bool SteamServer::setIdentityIPAddr(const String& reference_name, const String& 
 }
 
 // Returns null if we are not an IP address.
-uint32 SteamServer::getIdentityIPAddr(const String& reference_name){
+uint32 SteamServer::getIdentityIPAddr(String reference_name){
 	const SteamNetworkingIPAddr* this_address = networking_identities[reference_name.utf8().get_data()].GetIPAddr();
 	if (this_address == NULL){
 		return 0;
@@ -2310,48 +2310,48 @@ uint32 SteamServer::getIdentityIPAddr(const String& reference_name){
 }
 
 // Retrieve this identity's Playstation Network ID.
-uint64_t SteamServer::getPSNID(const String& reference_name){
+uint64_t SteamServer::getPSNID(String reference_name){
 	return networking_identities[reference_name.utf8().get_data()].GetPSNID();
 }
 
 // Retrieve this identity's Google Stadia ID.
-uint64_t SteamServer::getStadiaID(const String& reference_name){
+uint64_t SteamServer::getStadiaID(String reference_name){
 	return networking_identities[reference_name.utf8().get_data()].GetStadiaID();
 }
 
 // Retrieve this identity's XBox pair ID.
-String SteamServer::getXboxPairwiseID(const String& reference_name){
+String SteamServer::getXboxPairwiseID(String reference_name){
 	return networking_identities[reference_name.utf8().get_data()].GetXboxPairwiseID();
 }
 
 // Set to localhost. (We always use IPv6 ::1 for this, not 127.0.0.1).
-void SteamServer::setIdentityLocalHost(const String& reference_name){
+void SteamServer::setIdentityLocalHost(String reference_name){
 	networking_identities[reference_name.utf8().get_data()].SetLocalHost();
 }
 
 // Return true if this identity is localhost.
-bool SteamServer::isIdentityLocalHost(const String& reference_name){
+bool SteamServer::isIdentityLocalHost(String reference_name){
 	return networking_identities[reference_name.utf8().get_data()].IsLocalHost();
 }
 
 // Returns false if invalid length.
-bool SteamServer::setGenericString(const String& reference_name, const String& this_string){
+bool SteamServer::setGenericString(String reference_name, String this_string){
 	return networking_identities[reference_name.utf8().get_data()].SetGenericString(this_string.utf8().get_data());
 }
 
 // Returns nullptr if not generic string type
-String SteamServer::getGenericString(const String& reference_name){
+String SteamServer::getGenericString(String reference_name){
 	return networking_identities[reference_name.utf8().get_data()].GetGenericString();
 }
 
 // Returns false if invalid size.
-bool SteamServer::setGenericBytes(const String& reference_name, uint8 data){
+bool SteamServer::setGenericBytes(String reference_name, uint8 data){
 	const void *this_data = &data;
 	return networking_identities[reference_name.utf8().get_data()].SetGenericBytes(this_data, sizeof(data));
 }
 
 // Returns null if not generic bytes type.
-uint8 SteamServer::getGenericBytes(const String& reference_name){
+uint8 SteamServer::getGenericBytes(String reference_name){
 	uint8 these_bytes = 0;
 	if(!reference_name.empty()){
 		int length = 0;
@@ -2362,7 +2362,7 @@ uint8 SteamServer::getGenericBytes(const String& reference_name){
 }
 
 // Add a new IP address struct
-bool SteamServer::addIPAddress(const String& reference_name){
+bool SteamServer::addIPAddress(String reference_name){
 	ip_addresses[reference_name.utf8().get_data()] = SteamNetworkingIPAddr();
 	if(ip_addresses.count(reference_name.utf8().get_data()) > 0){
 		return true;
@@ -2385,64 +2385,64 @@ Array SteamServer::getIPAddresses(){
 }
 
 // IP Address - Set everything to zero. E.g. [::]:0
-void SteamServer::clearIPAddress(const String& reference_name){
+void SteamServer::clearIPAddress(String reference_name){
 	ip_addresses[reference_name.utf8().get_data()].Clear();
 }
 
 // Return true if the IP is ::0. (Doesn't check port.)
-bool SteamServer::isIPv6AllZeros(const String& reference_name){
+bool SteamServer::isIPv6AllZeros(String reference_name){
 	return ip_addresses[reference_name.utf8().get_data()].IsIPv6AllZeros();
 }
 
 // Set IPv6 address. IP is interpreted as bytes, so there are no endian issues. (Same as inaddr_in6.) The IP can be a mapped IPv4 address.
-void SteamServer::setIPv6(const String& reference_name, uint8 ipv6, uint16 port){
+void SteamServer::setIPv6(String reference_name, uint8 ipv6, uint16 port){
 	const uint8 *this_ipv6 = &ipv6;
 	ip_addresses[reference_name.utf8().get_data()].SetIPv6(this_ipv6, port);
 }
 
 // Sets to IPv4 mapped address. IP and port are in host byte order.
-void SteamServer::setIPv4(const String& reference_name, uint32 ip, uint16 port){
+void SteamServer::setIPv4(String reference_name, uint32 ip, uint16 port){
 	ip_addresses[reference_name.utf8().get_data()].SetIPv4(ip, port);
 }
 
 // Return true if IP is mapped IPv4.
-bool SteamServer::isIPv4(const String& reference_name){
+bool SteamServer::isIPv4(String reference_name){
 	return ip_addresses[reference_name.utf8().get_data()].IsIPv4();
 }
 
 // Returns IP in host byte order (e.g. aa.bb.cc.dd as 0xaabbccdd). Returns 0 if IP is not mapped IPv4.
-uint32 SteamServer::getIPv4(const String& reference_name){
+uint32 SteamServer::getIPv4(String reference_name){
 	return ip_addresses[reference_name.utf8().get_data()].GetIPv4();
 }
 
 // Set to the IPv6 localhost address ::1, and the specified port.
-void SteamServer::setIPv6LocalHost(const String& reference_name, uint16 port){
+void SteamServer::setIPv6LocalHost(String reference_name, uint16 port){
 	ip_addresses[reference_name.utf8().get_data()].SetIPv6LocalHost(port);
 }
 
 // Set the Playstation Network ID for this identity.
-void SteamServer::setPSNID(const String& reference_name, uint64_t psn_id){
+void SteamServer::setPSNID(String reference_name, uint64_t psn_id){
 	networking_identities[reference_name.utf8().get_data()].SetPSNID(psn_id);
 }
 
 // Set the Google Stadia ID for this identity.
-void SteamServer::setStadiaID(const String& reference_name, uint64_t stadia_id){
+void SteamServer::setStadiaID(String reference_name, uint64_t stadia_id){
 	networking_identities[reference_name.utf8().get_data()].SetStadiaID(stadia_id);
 }
 
 // Set the Xbox Pairwise ID for this identity.
-bool SteamServer::setXboxPairwiseID(const String& reference_name, const String& xbox_id){
+bool SteamServer::setXboxPairwiseID(String reference_name, String xbox_id){
 	return networking_identities[reference_name.utf8().get_data()].SetXboxPairwiseID(xbox_id.utf8().get_data());
 }
 
 // Return true if this identity is localhost. (Either IPv6 ::1, or IPv4 127.0.0.1).
-bool SteamServer::isAddressLocalHost(const String& reference_name){
+bool SteamServer::isAddressLocalHost(String reference_name){
 	return ip_addresses[reference_name.utf8().get_data()].IsLocalHost();
 }
 
 // Parse back a string that was generated using ToString. If we don't understand the string, but it looks "reasonable" (it matches the pattern type:<type-data> and doesn't have any funky characters, etc), then we will return true, and the type is set to k_ESteamNetworkingIdentityType_UnknownType.
 // false will only be returned if the string looks invalid.
-bool SteamServer::parseIdentityString(const String& reference_name, const String& string_to_parse){
+bool SteamServer::parseIdentityString(String reference_name, String string_to_parse){
 	if(!reference_name.empty() && !string_to_parse.empty()){
 		if(networking_identities[reference_name.utf8().get_data()].ParseString(string_to_parse.utf8().get_data())){
 			return true;
@@ -2453,7 +2453,7 @@ bool SteamServer::parseIdentityString(const String& reference_name, const String
 }
 
 // Parse an IP address and optional port.  If a port is not present, it is set to 0. (This means that you cannot tell if a zero port was explicitly specified.).
-bool SteamServer::parseIPAddressString(const String& reference_name, const String& string_to_parse){
+bool SteamServer::parseIPAddressString(String reference_name, String string_to_parse){
 	if(!reference_name.empty() && !string_to_parse.empty()){
 		if(ip_addresses[reference_name.utf8().get_data()].ParseString(string_to_parse.utf8().get_data())){
 			return true;
@@ -2465,7 +2465,7 @@ bool SteamServer::parseIPAddressString(const String& reference_name, const Strin
 
 // Print to a string, with or without the port. Mapped IPv4 addresses are printed as dotted decimal (12.34.56.78), otherwise this will print the canonical form according to RFC5952.
 // If you include the port, IPv6 will be surrounded by brackets, e.g. [::1:2]:80. Your buffer should be at least k_cchMaxString bytes to avoid truncation.
-String SteamServer::toIPAddressString(const String& reference_name, bool with_port){
+String SteamServer::toIPAddressString(String reference_name, bool with_port){
 	String ip_address_string = "";
 	char *this_buffer = new char[128];
 	ip_addresses[reference_name.utf8().get_data()].ToString(this_buffer, 128, with_port);
@@ -2476,7 +2476,7 @@ String SteamServer::toIPAddressString(const String& reference_name, bool with_po
 
 // Print to a human-readable string.  This is suitable for debug messages or any other time you need to encode the identity as a string.
 // It has a URL-like format (type:<type-data>). Your buffer should be at least k_cchMaxString bytes big to avoid truncation.
-String SteamServer::toIdentityString(const String& reference_name){
+String SteamServer::toIdentityString(String reference_name){
 	String identity_string = "";
 	char *this_buffer = new char[128];
 	networking_identities[reference_name.utf8().get_data()].ToString(this_buffer, 128);
@@ -2617,7 +2617,7 @@ String SteamServer::convertPingLocationToString(PoolByteArray location){
 }
 
 // Parse back SteamNetworkPingLocation_t string. Returns false if we couldn't understand the string.
-Dictionary SteamServer::parsePingLocationString(const String& location_string){
+Dictionary SteamServer::parsePingLocationString(String location_string){
 	Dictionary parse_string;
 	if(SteamNetworkingUtils() != NULL){
 		SteamNetworkPingLocation_t result;
@@ -2741,7 +2741,7 @@ bool SteamServer::setGlobalConfigValueFloat(int config, float value){
 	}
 	return SteamNetworkingUtils()->SetGlobalConfigValueFloat((ESteamNetworkingConfigValue)config, value);
 }
-bool SteamServer::setGlobalConfigValueString(int config, const String& value){
+bool SteamServer::setGlobalConfigValueString(int config, String value){
 	if(SteamNetworkingUtils() == NULL){
 		return false;
 	}
@@ -2760,7 +2760,7 @@ bool SteamServer::setConnectionConfigValueFloat(uint32 connection, int config, f
 	return SteamNetworkingUtils()->SetConnectionConfigValueFloat(connection, (ESteamNetworkingConfigValue)config, value);
 }
 
-bool SteamServer::setConnectionConfigValueString(uint32 connection, int config, const String& value){
+bool SteamServer::setConnectionConfigValueString(uint32 connection, int config, String value){
 	if(SteamNetworkingUtils() == NULL){
 		return false;
 	}
@@ -2810,7 +2810,7 @@ void SteamServer::addDependency(uint64_t published_file_id, uint64_t child_publi
 }
 
 // Adds a excluded tag to a pending UGC Query. This will only return UGC without the specified tag.
-bool SteamServer::addExcludedTag(uint64_t query_handle, const String& tag_name){
+bool SteamServer::addExcludedTag(uint64_t query_handle, String tag_name){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -2819,7 +2819,7 @@ bool SteamServer::addExcludedTag(uint64_t query_handle, const String& tag_name){
 }
 
 // Adds a key-value tag pair to an item. Keys can map to multiple different values (1-to-many relationship).
-bool SteamServer::addItemKeyValueTag(uint64_t update_handle, const String& key, const String& value){
+bool SteamServer::addItemKeyValueTag(uint64_t update_handle, String key, String value){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -2828,7 +2828,7 @@ bool SteamServer::addItemKeyValueTag(uint64_t update_handle, const String& key, 
 }
 
 // Adds an additional preview file for the item.
-bool SteamServer::addItemPreviewFile(uint64_t query_handle, const String& preview_file, int type){
+bool SteamServer::addItemPreviewFile(uint64_t query_handle, String preview_file, int type){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -2856,7 +2856,7 @@ bool SteamServer::addItemPreviewFile(uint64_t query_handle, const String& previe
 }
 
 // Adds an additional video preview from YouTube for the item.
-bool SteamServer::addItemPreviewVideo(uint64_t query_handle, const String& video_id){
+bool SteamServer::addItemPreviewVideo(uint64_t query_handle, String video_id){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -2875,7 +2875,7 @@ void SteamServer::addItemToFavorites(uint32_t app_id, uint64_t published_file_id
 }
 
 // Adds a required key-value tag to a pending UGC Query. This will only return workshop items that have a key = pKey and a value = pValue.
-bool SteamServer::addRequiredKeyValueTag(uint64_t query_handle, const String& key, const String& value){
+bool SteamServer::addRequiredKeyValueTag(uint64_t query_handle, String key, String value){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -2884,7 +2884,7 @@ bool SteamServer::addRequiredKeyValueTag(uint64_t query_handle, const String& ke
 }
 
 // Adds a required tag to a pending UGC Query. This will only return UGC with the specified tag.
-bool SteamServer::addRequiredTag(uint64_t query_handle, const String& tag_name){
+bool SteamServer::addRequiredTag(uint64_t query_handle, String tag_name){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3618,7 +3618,7 @@ void SteamServer::removeItemFromFavorites(uint32_t app_id, uint64_t published_fi
 }
 
 // Removes an existing key value tag from an item.
-bool SteamServer::removeItemKeyValueTags(uint64_t update_handle, const String& key){
+bool SteamServer::removeItemKeyValueTags(uint64_t update_handle, String key){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3654,7 +3654,7 @@ bool SteamServer::setAllowCachedResponse(uint64_t update_handle, uint32 max_age_
 }
 
 // Sets to only return items that have a specific filename on a pending UGC Query.
-bool SteamServer::setCloudFileNameFilter(uint64_t update_handle, const String& match_cloud_filename){
+bool SteamServer::setCloudFileNameFilter(uint64_t update_handle, String match_cloud_filename){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3663,7 +3663,7 @@ bool SteamServer::setCloudFileNameFilter(uint64_t update_handle, const String& m
 }
 
 // Sets the folder that will be stored as the content for an item.
-bool SteamServer::setItemContent(uint64_t update_handle, const String& content_folder){
+bool SteamServer::setItemContent(uint64_t update_handle, String content_folder){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3672,7 +3672,7 @@ bool SteamServer::setItemContent(uint64_t update_handle, const String& content_f
 }
 
 // Sets a new description for an item.
-bool SteamServer::setItemDescription(uint64_t update_handle, const String& description){
+bool SteamServer::setItemDescription(uint64_t update_handle, String description){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3685,7 +3685,7 @@ bool SteamServer::setItemDescription(uint64_t update_handle, const String& descr
 }
 
 // Sets arbitrary metadata for an item. This metadata can be returned from queries without having to download and install the actual content.
-bool SteamServer::setItemMetadata(uint64_t update_handle, const String& metadata){
+bool SteamServer::setItemMetadata(uint64_t update_handle, String metadata){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3697,7 +3697,7 @@ bool SteamServer::setItemMetadata(uint64_t update_handle, const String& metadata
 }
 
 // Sets the primary preview image for the item.
-bool SteamServer::setItemPreview(uint64_t update_handle, const String& preview_file){
+bool SteamServer::setItemPreview(uint64_t update_handle, String preview_file){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3725,7 +3725,7 @@ bool SteamServer::setItemTags(uint64_t update_handle, Array tag_array, bool allo
 }
 
 // Sets a new title for an item.
-bool SteamServer::setItemTitle(uint64_t update_handle, const String& title){
+bool SteamServer::setItemTitle(uint64_t update_handle, String title){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3738,7 +3738,7 @@ bool SteamServer::setItemTitle(uint64_t update_handle, const String& title){
 }
 
 // Sets the language of the title and description that will be set in this item update.
-bool SteamServer::setItemUpdateLanguage(uint64_t update_handle, const String& language){
+bool SteamServer::setItemUpdateLanguage(uint64_t update_handle, String language){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3756,7 +3756,7 @@ bool SteamServer::setItemVisibility(uint64_t update_handle, int visibility){
 }
 
 // Sets the language to return the title and description in for the items on a pending UGC Query.
-bool SteamServer::setLanguage(uint64_t query_handle, const String& language){
+bool SteamServer::setLanguage(uint64_t query_handle, String language){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3855,7 +3855,7 @@ bool SteamServer::setReturnTotalOnly(uint64_t query_handle, bool return_total_on
 }
 
 // Sets a string to that items need to match in either the title or the description on a pending UGC Query.
-bool SteamServer::setSearchText(uint64_t query_handle, const String& search_text){
+bool SteamServer::setSearchText(uint64_t query_handle, String search_text){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3933,7 +3933,7 @@ void SteamServer::getAppDependencies(uint64_t published_file_id){
 }
 
 // Uploads the changes made to an item to the Steam Workshop; to be called after setting your changes.
-void SteamServer::submitItemUpdate(uint64_t update_handle, const String& change_note){
+void SteamServer::submitItemUpdate(uint64_t update_handle, String change_note){
 	if(SteamUGC() != NULL){
 		UGCUpdateHandle_t handle = uint64(update_handle);
 		SteamAPICall_t api_call;
@@ -3972,7 +3972,7 @@ void SteamServer::unsubscribeItem(uint64_t published_file_id){
 }
 
 // Updates an existing additional preview file for the item.
-bool SteamServer::updateItemPreviewFile(uint64_t update_handle, uint32 index, const String& preview_file){
+bool SteamServer::updateItemPreviewFile(uint64_t update_handle, uint32 index, String preview_file){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -3981,7 +3981,7 @@ bool SteamServer::updateItemPreviewFile(uint64_t update_handle, uint32 index, co
 }
 
 // Updates an additional video preview from YouTube for the item.
-bool SteamServer::updateItemPreviewVideo(uint64_t update_handle, uint32 index, const String& video_id){
+bool SteamServer::updateItemPreviewVideo(uint64_t update_handle, uint32 index, String video_id){
 	if(SteamUGC() == NULL){
 		return false;
 	}
@@ -4454,7 +4454,7 @@ void SteamServer::user_subscribed_items_list_changed(UserSubscribedItemsListChan
 // STEAMWORKS ERROR SIGNAL //////////////////////
 //
 //! Intended to serve as generic error messaging for failed call results
-void SteamServer::steamworksError(const String& failed_signal){
+void SteamServer::steamworksError(String failed_signal){
 	// Emit the signal to inform the user of the failure
 	emit_signal("steamworks_error", failed_signal, "io failure");
 }
