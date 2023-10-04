@@ -72,7 +72,7 @@ jobs:
           ls -al
           ls -al bin/osx
           cd bin/osx 
-          mv libgodotsteam.dylib libgodotsteam-${{ matrix.architecture }}.dylib
+          mv libgodotsteam_server.dylib libgodotsteam_server-${{ matrix.architecture }}.dylib
           cd ..
 
       - name: Upload macOS dylib
