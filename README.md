@@ -42,7 +42,7 @@ Quick How-To
 ----------
 For complete instructions on how to build the GDNative version of GodotSteam Server from scratch, [please refer to our documentation's 'How-To GDNative' section.](https://godotsteam.com/howto/gdnative/)  It will have the most up-to-date information.
 
-Alternatively, you can just [download the pre-compiled versions in our Releases section](https://github.com/CoaguCo-Industries/GodotSteam-Server/releases) or [from the Godot Asset Library](https://godotengine.org/asset-library/asset/0000) and skip compiling it yourself!
+Alternatively, you can just [download the pre-compiled versions in our Releases section](https://github.com/CoaguCo-Industries/GodotSteam-Server/releases) or [from the Godot Asset Library](https://godotengine.org/asset-library/asset/2222) and skip compiling it yourself!
 
 Usage
 ----------
