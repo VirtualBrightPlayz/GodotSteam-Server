@@ -16,6 +16,7 @@
 //
 // Include GodotSteam Server header
 #include "godotsteam_server.h"
+#include "godotsteam_server_constants.h"
 
 // Include some system headers
 #include "string.h"
@@ -23,59 +24,6 @@
 #include "vector"
 
 using namespace godot;
-
-
-/////////////////////////////////////////////////
-///// DEFINING CONSTANTS
-/////////////////////////////////////////////////
-//
-// Define Steam API constants
-#define API_CALL_INVALID 0x0
-#define APP_ID_INVALID 0x0
-#define AUTH_TICKET_INVALID 0
-#define DEPOT_ID_INVALID 0x0
-#define GAME_EXTRA_INFO_MAX 64
-#define INVALID_BREAKPAD_HANDLE 0
-#define STEAM_ACCOUNT_ID_MASK 0xFFFFFFFF
-#define STEAM_ACCOUNT_INSTANCE_MASK 0x000FFFFF
-#define STEAM_BUFFER_SIZE 255
-#define STEAM_LARGE_BUFFER_SIZE 8160
-#define STEAM_MAX_ERROR_MESSAGE 1024
-#define STEAM_USER_CONSOLE_INSTANCE 2
-#define STEAM_USER_DESKTOP_INSTANCE 1
-#define STEAM_USER_WEB_INSTANCE 4
-#define QUERY_PORT_ERROR 0xFFFE
-#define QUERY_PORT_NOT_INITIALIZED 0xFFFF
-
-// Define Steam Server API constants
-#define FLAG_ACTIVE 0x01
-#define FLAG_DEDICATED 0x04
-#define FLAG_LINUX 0x08
-#define FLAG_NONE 0x00
-#define FLAG_PASSWORDED 0x10
-#define FLAG_PRIVATE 0x20
-#define FLAG_SECURE 0x02
-#define QUERY_PORT_SHARED 0xffff
-
-// Define HTTP constants
-#define HTTPCOOKIE_INVALID_HANDLE 0
-#define HTTPREQUEST_INVALID_HANDLE 0
-
-// Define Inventory constants
-#define INVENTORY_RESULT_INVALID -1
-#define ITEM_INSTANCE_ID_INVALID 0
-
-// Define Networking Message constants
-#define NETWORKING_SEND_UNRELIABLE 0
-#define NETWORKING_SEND_NO_NAGLE 1
-#define NETWORKING_SEND_NO_DELAY 4
-#define NETWORKING_SEND_RELIABLE 8
-
-// Define UGC constants
-#define NUM_UGC_RESULTS_PER_PAGE 50
-#define DEVELOPER_METADATA_MAX 5000
-#define UGC_QUERY_HANDLE_INVALID 0
-#define UGC_UPDATE_HANDLE_INVALID 0
 
 
 /////////////////////////////////////////////////
@@ -124,6 +72,9 @@ SteamServer::SteamServer():
 
 	// Networking Utils callbacks ///////////////
 	callbackRelayNetworkStatus(this, &SteamServer::relay_network_status),
+
+	// Remote Storage callbacks /////////////////
+	callbackLocalFileChanged(this, &SteamServer::local_file_changed),
 
 	// UGC callbacks ////////////////////////////
 	callbackItemDownloaded(this, &SteamServer::item_downloaded),
@@ -176,7 +127,7 @@ bool SteamServer::serverInit(String ip, uint16 game_port, uint16 query_port, int
 	}
 
 	uint32_t ip_address = 0;
-	if(!ip.empty()){
+	if(!ip.empty() || ip != "0"){
 		// Resolve address and convert it
 		if(ip.is_valid_ip_address()){
 			char ip_bytes[4];
@@ -212,7 +163,7 @@ Dictionary SteamServer::serverInitEx(String ip, uint16 game_port, uint16 query_p
 	}
 
 	uint32_t ip_address = 0;
-	if(!ip.empty()){
+	if(!ip.empty() || ip != "0"){
 		// Resolve address and convert it
 		if(ip.is_valid_ip_address()){
 			char ip_bytes[4];
@@ -1003,22 +954,32 @@ void SteamServer::destroyResult(int this_inventory_handle){
 }
 
 // Grant one item in exchange for a set of other items.
-int32 SteamServer::exchangeItems(const PoolIntArray output_items, const uint32 output_quantity, const uint64_t input_items, const uint32 input_quantity){
+int32 SteamServer::exchangeItems(PoolIntArray output_items, PoolIntArray output_quantity, PoolIntArray input_items, PoolIntArray input_quantity){
 	int32 new_inventory_handle = 0;
 	if(SteamInventory() != NULL){
-		if(SteamInventory()->ExchangeItems(&new_inventory_handle, output_items.read().ptr(), &output_quantity, 1, (const uint64 *)input_items, &input_quantity, 1)){
+		uint32_t* quantity_out = (uint32*) output_quantity.read().ptr();
+		uint32_t* quantity_in = (uint32*) input_quantity.read().ptr();
+		int array_size = input_items.size();
+		SteamItemInstanceID_t *input_item_ids = new SteamItemInstanceID_t[array_size];
+		for(int i = 0; i < array_size; i++){
+			input_item_ids[i] = input_items[i];
+		}
+		const SteamItemInstanceID_t *these_item_ids = input_item_ids;
+		if(SteamInventory()->ExchangeItems(&new_inventory_handle, output_items.read().ptr(), quantity_out, 1, these_item_ids, quantity_in, 1)){
 			// Update the internally stored handle
 			inventory_handle = new_inventory_handle;
 		}
+		delete[] input_item_ids;
 	}
 	return new_inventory_handle;
 }
 
 // Grants specific items to the current user, for developers only.
-int32 SteamServer::generateItems(const PoolIntArray items, const uint32 quantity){
+int32 SteamServer::generateItems(PoolIntArray items, PoolIntArray quantity){
 	int32 new_inventory_handle = 0;
 	if(SteamInventory() != NULL){
-		if(SteamInventory()->GenerateItems(&new_inventory_handle, items.read().ptr(), &quantity, items.size())){
+		uint32_t* this_quantity = (uint32*) quantity.read().ptr();
+		if(SteamInventory()->GenerateItems(&new_inventory_handle, items.read().ptr(), this_quantity, items.size())){
 			// Update the internally stored handle
 			inventory_handle = new_inventory_handle;
 		}
@@ -1052,13 +1013,20 @@ String SteamServer::getItemDefinitionProperty(uint32 definition, String name){
 }
 
 // Gets the state of a subset of the current user's inventory.
-int32 SteamServer::getItemsByID(const uint64_t id_array, uint32 count){
+int32 SteamServer::getItemsByID(PoolIntArray id_array){
 	int32 new_inventory_handle = 0;
 	if(SteamInventory() != NULL){
-		if(SteamInventory()->GetItemsByID(&new_inventory_handle, (const uint64 *)id_array, count)){
+		int array_size = id_array.size();
+		SteamItemInstanceID_t *item_ids = new SteamItemInstanceID_t[array_size];
+		for(int i = 0; i < array_size; i++){
+			item_ids[i] = id_array[i];
+		}
+		const SteamItemInstanceID_t *these_item_ids = item_ids;
+		if(SteamInventory()->GetItemsByID(&new_inventory_handle, these_item_ids, array_size)) {
 			// Update the internally stored handle
 			inventory_handle = new_inventory_handle;
 		}
+		delete[] item_ids;
 	}
 	return new_inventory_handle;
 }
@@ -1075,18 +1043,19 @@ uint64_t SteamServer::getItemPrice(uint32 definition){
 }
 
 // After a successful call to RequestPrices, you can call this method to get all the pricing for applicable item definitions. Use the result of GetNumItemsWithPrices as the the size of the arrays that you pass in.
-Array SteamServer::getItemsWithPrices(uint32 length){
+Array SteamServer::getItemsWithPrices(){
 	if(SteamInventory() == NULL){
 		return Array();
 	}
+	uint32 valid_prices = SteamInventory()->GetNumItemsWithPrices();
 	// Create the return array
 	Array price_array;
 	// Create a temporary array
-	SteamItemDef_t *ids = new SteamItemDef_t[length];
-	uint64 *prices = new uint64[length];
-	uint64 *base_prices = new uint64[length];
-	if(SteamInventory()->GetItemsWithPrices(ids, prices, base_prices, length)){
-		for(uint32 i = 0; i < length; i++){
+	SteamItemDef_t *ids = new SteamItemDef_t[valid_prices];
+	uint64 *prices = new uint64[valid_prices];
+	uint64 *base_prices = new uint64[valid_prices];
+	if(SteamInventory()->GetItemsWithPrices(ids, prices, base_prices, valid_prices)){
+		for(uint32 i = 0; i < valid_prices; i++){
 			Dictionary price_group;
 			price_group["item"] = ids[i];
 			price_group["price"] = (uint64_t)prices[i];
@@ -1098,14 +1067,6 @@ Array SteamServer::getItemsWithPrices(uint32 length){
 	delete[] prices;
 	delete[] base_prices;
 	return price_array;
-}
-
-// After a successful call to RequestPrices, this will return the number of item definitions with valid pricing.
-uint32 SteamServer::getNumItemsWithPrices(){
-	if(SteamInventory() == NULL){
-		return 0;
-	}
-	return SteamInventory()->GetNumItemsWithPrices();
 }
 
 // Gets the dynamic properties from an item in an inventory result set.
@@ -1143,7 +1104,12 @@ Array SteamServer::getResultItems(int32 this_inventory_handle){
 		}
 		if(SteamInventory()->GetResultItems((SteamInventoryResult_t)this_inventory_handle, item_array, &size)){
 			for(uint32 i = 0; i < size; i++){
-				items.push_back((uint64_t)item_array[i].m_itemId);
+				Dictionary item_info;
+				item_info["item_id"] = (uint64_t)item_array[i].m_itemId;
+				item_info["item_definition"] = item_array[i].m_iDefinition;
+				item_info["flags"] = item_array[i].m_unFlags;
+				item_info["quantity"] = item_array[i].m_unQuantity;
+				items.append(item_info);
 			}
 		}
 		delete[] item_array;
@@ -1254,9 +1220,10 @@ String SteamServer::serializeResult(int32 this_inventory_handle){
 }
 
 // Starts the purchase process for the user, given a "shopping cart" of item definitions that the user would like to buy. The user will be prompted in the Steam Overlay to complete the purchase in their local currency, funding their Steam Wallet if necessary, etc.
-void SteamServer::startPurchase(const PoolIntArray items, const uint32 quantity){
+void SteamServer::startPurchase(PoolIntArray items, PoolIntArray quantity){
 	if(SteamInventory() != NULL){
-		SteamAPICall_t api_call = SteamInventory()->StartPurchase(items.read().ptr(), &quantity, items.size());
+		uint32_t* these_quantities = (uint32*) quantity.read().ptr();
+		SteamAPICall_t api_call = SteamInventory()->StartPurchase(items.read().ptr(), these_quantities, items.size());
 		callResultStartPurchase.Set(api_call, this, &SteamServer::inventory_start_purchase_result);
 	}
 }
@@ -1837,12 +1804,12 @@ Array SteamServer::receiveMessagesOnPollGroup(uint32 poll_group, int max_message
 			char identity[STEAM_BUFFER_SIZE];
 			poll_messages[i]->m_identityPeer.ToString(identity, STEAM_BUFFER_SIZE);
 			message["identity"] = identity;
-			message["user_data"] = (uint64_t)poll_messages[i]->m_nConnUserData;
+			message["receiver_user_data"] = (uint64_t)poll_messages[i]->m_nConnUserData;
 			message["time_received"] = (uint64_t)poll_messages[i]->m_usecTimeReceived;
 			message["message_number"] = (uint64_t)poll_messages[i]->m_nMessageNumber;
 			message["channel"] = poll_messages[i]->m_nChannel;
 			message["flags"] = poll_messages[i]->m_nFlags;
-			message["user_data"] = (uint64_t)poll_messages[i]->m_nUserData;
+			message["sender_user_data"] = (uint64_t)poll_messages[i]->m_nUserData;
 			messages.append(message);
 			// Release the message
 			poll_messages[i]->Release();
@@ -1920,12 +1887,18 @@ String SteamServer::getConnectionName(uint32 peer){
 }
 
 // Returns local IP and port that a listen socket created using CreateListenSocketIP is bound to.
-bool SteamServer::getListenSocketAddress(uint32 socket){
-	if(SteamNetworkingSockets() == NULL){
-		return false;
+String SteamServer::getListenSocketAddress(uint32 socket, bool with_port){
+	String socket_address = "";
+	if(SteamNetworkingSockets() != NULL){
+		SteamNetworkingIPAddr address;
+		if(SteamNetworkingSockets()->GetListenSocketAddress((HSteamListenSocket)socket, &address)){
+			char *this_address = new char[48];
+			address.ToString(this_address, 48, with_port);
+			socket_address = String(this_address);
+			delete[] this_address;
+		}
 	}
-	SteamNetworkingIPAddr address;
-	return SteamNetworkingSockets()->GetListenSocketAddress((HSteamListenSocket)socket, &address);
+	return socket_address;
 }
 
 // Get the identity assigned to this interface.
@@ -1946,17 +1919,17 @@ String SteamServer::getIdentity(){
 // Indicate our desire to be ready participate in authenticated communications. If we are currently not ready, then steps will be taken to obtain the necessary certificates. (This includes a certificate for us, as well as any CA certificates needed to authenticate peers.)
 int SteamServer::initAuthentication(){
 	if(SteamNetworkingSockets() == NULL){
-		return NETWORKING_AVAILABILITY_UNKNOWN;
+		return k_ESteamNetworkingAvailability_Unknown;
 	}
-	return NetworkingAvailability(SteamNetworkingSockets()->InitAuthentication());
+	return int(SteamNetworkingSockets()->InitAuthentication());
 }
 
 // Query our readiness to participate in authenticated communications. A SteamNetAuthenticationStatus_t callback is posted any time this status changes, but you can use this function to query it at any time.
 int SteamServer::getAuthenticationStatus(){
 	if(SteamNetworkingSockets() == NULL){
-		return NETWORKING_AVAILABILITY_UNKNOWN;
+		return k_ESteamNetworkingAvailability_Unknown;
 	}
-	return NetworkingAvailability(SteamNetworkingSockets()->GetAuthenticationStatus(NULL));
+	return int(SteamNetworkingSockets()->GetAuthenticationStatus(NULL));
 }
 
 // Call this when you receive a ticket from your backend / matchmaking system. Puts the ticket into a persistent cache, and optionally returns the parsed ticket.
@@ -2551,9 +2524,9 @@ void SteamServer::initRelayNetworkAccess(){
 // Fetch current status of the relay network.  If you want more details, you can pass a non-NULL value.
 int SteamServer::getRelayNetworkStatus(){
 	if(SteamNetworkingUtils() == NULL){
-		return NETWORKING_AVAILABILITY_UNKNOWN;
+		return k_ESteamNetworkingAvailability_Unknown;
 	}
-	return NetworkingAvailability(SteamNetworkingUtils()->GetRelayNetworkStatus(NULL));
+	return int(SteamNetworkingUtils()->GetRelayNetworkStatus(NULL));
 }
 
 // Return location info for the current host. Returns the approximate age of the data, in seconds, or -1 if no data is available.
@@ -3728,7 +3701,7 @@ bool SteamServer::setItemTags(uint64_t update_handle, Array tag_array, bool allo
 			tags->m_ppStrings[i] = str.utf8().get_data();
 		}
 		tags->m_nNumStrings = tag_array.size();
-		tags_set = SteamUGC()->SetItemTags(handle, tags);
+		tags_set = SteamUGC()->SetItemTags(handle, tags, allow_admin_tags);
 		delete tags;
 	}
 	return tags_set;
@@ -4068,112 +4041,14 @@ void SteamServer::client_approved(GSClientApprove_t* clientData){
 // Client has been denied to connection to this game server.
 void SteamServer::client_denied(GSClientDeny_t* clientData){
 	uint64_t steam_id = clientData->m_SteamID.ConvertToUint64();
-	int reason;
-	// Convert reason.
-	if(clientData->m_eDenyReason == k_EDenyInvalid){
-		reason = DENY_INVALID;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyInvalidVersion){
-		reason = DENY_INVALID_VERSION;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyGeneric){
-		reason = DENY_GENERIC;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyNotLoggedOn){
-		reason = DENY_NOT_LOGGED_ON;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyNoLicense){
-		reason = DENY_NO_LICENSE;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyCheater){
-		reason = DENY_CHEATER;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyLoggedInElseWhere){
-		reason = DENY_LOGGED_IN_ELSEWHERE;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyUnknownText){
-		reason = DENY_UNKNOWN_TEXT;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyIncompatibleAnticheat){
-		reason = DENY_INCOMPATIBLE_ANTI_CHEAT;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyMemoryCorruption){
-		reason = DENY_MEMORY_CORRUPTION;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyIncompatibleSoftware){
-		reason = DENY_INCOMPATIBLE_SOFTWARE;
-	}
-	else if(clientData->m_eDenyReason == k_EDenySteamConnectionLost){
-		reason = DENY_STEAM_CONNECTION_LOST;
-	}
-	else if(clientData->m_eDenyReason == k_EDenySteamConnectionError){
-		reason = DENY_STEAM_CONNECTION_ERROR;
-	}
-	else if(clientData->m_eDenyReason == k_EDenySteamResponseTimedOut){
-		reason = DENY_STEAM_RESPONSE_TIMED_OUT;
-	}
-	else if(clientData->m_eDenyReason == k_EDenySteamValidationStalled){
-		reason = DENY_STEAM_VALIDATION_STALLED;
-	}
-	else{
-		reason = DENY_STEAM_OWNER_LEFT_GUEST_USER;
-	}
+	int reason = clientData->m_eDenyReason;
 	emit_signal("client_denied", steam_id, reason);
 }
 
 // Request the game server should kick the user.
 void SteamServer::client_kick(GSClientKick_t* clientData){
 	uint64_t steam_id = clientData->m_SteamID.ConvertToUint64();
-	int reason;
-	// Convert reason.
-	if(clientData->m_eDenyReason == k_EDenyInvalid){
-		reason = DENY_INVALID;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyInvalidVersion){
-		reason = DENY_INVALID_VERSION;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyGeneric){
-		reason = DENY_GENERIC;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyNotLoggedOn){
-		reason = DENY_NOT_LOGGED_ON;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyNoLicense){
-		reason = DENY_NO_LICENSE;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyCheater){
-		reason = DENY_CHEATER;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyLoggedInElseWhere){
-		reason = DENY_LOGGED_IN_ELSEWHERE;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyUnknownText){
-		reason = DENY_UNKNOWN_TEXT;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyIncompatibleAnticheat){
-		reason = DENY_INCOMPATIBLE_ANTI_CHEAT;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyMemoryCorruption){
-		reason = DENY_MEMORY_CORRUPTION;
-	}
-	else if(clientData->m_eDenyReason == k_EDenyIncompatibleSoftware){
-		reason = DENY_INCOMPATIBLE_SOFTWARE;
-	}
-	else if(clientData->m_eDenyReason == k_EDenySteamConnectionLost){
-		reason = DENY_STEAM_CONNECTION_LOST;
-	}
-	else if(clientData->m_eDenyReason == k_EDenySteamConnectionError){
-		reason = DENY_STEAM_CONNECTION_ERROR;
-	}
-	else if(clientData->m_eDenyReason == k_EDenySteamResponseTimedOut){
-		reason = DENY_STEAM_RESPONSE_TIMED_OUT;
-	}
-	else if(clientData->m_eDenyReason == k_EDenySteamValidationStalled){
-		reason = DENY_STEAM_VALIDATION_STALLED;
-	}
-	else{
-		reason = DENY_STEAM_OWNER_LEFT_GUEST_USER;
-	}
+	int reason = clientData->m_eDenyReason;
 	emit_signal("client_kick", steam_id, reason);
 }
 
@@ -4195,31 +4070,13 @@ void SteamServer::client_group_status(GSClientGroupStatus_t* clientData){
 
 // Sent as a reply to AssociateWithClan().
 void SteamServer::associate_clan(AssociateWithClanResult_t* clanData){
-	int result;
-	if(clanData->m_eResult == k_EResultOK){
-		result = RESULT_OK;
-	}
-	else{
-		result = RESULT_FAIL;
-	}
+	int result = clanData->m_eResult;
 	emit_signal("associate_clan", result);
 }
 
 // Sent as a reply to ComputeNewPlayerCompatibility().
 void SteamServer::player_compat(ComputeNewPlayerCompatibilityResult_t* playerData){
-	int result;
-	if(playerData->m_eResult == k_EResultNoConnection){
-		result = RESULT_NO_CONNECTION;
-	}
-	else if(playerData->m_eResult == k_EResultTimeout){
-		result = RESULT_TIMEOUT;
-	}
-	else if(playerData->m_eResult == k_EResultFail){
-		result = RESULT_FAIL;
-	}
-	else{
-		result = RESULT_OK;
-	}
+	int result = playerData->m_eResult;
 	int players_dont_like_candidate = playerData->m_cPlayersThatDontLikeCandidate;
 	int players_candidate_doesnt_like = playerData->m_cPlayersThatCandidateDoesntLike;
 	int clan_players_dont_like_candidate = playerData->m_cClanPlayersThatDontLikeCandidate;
@@ -4433,6 +4290,14 @@ void SteamServer::relay_network_status(SteamRelayNetworkStatus_t* call_data){
 	delete[] debug_message;
 }
 
+// REMOTE STORAGE CALLBACKS /////////////////////
+//
+// Purpose: one or more files for this app have changed locally after syncing to remote session changes.
+// Note: only posted if this happens DURING the local app session.
+void SteamServer::local_file_changed(RemoteStorageLocalFileChange_t* call_data){
+	emit_signal("local_file_changed");
+}
+
 // UGC CALLBACKS ////////////////////////////////
 //
 // Called when a workshop item has been downloaded.
@@ -4533,6 +4398,57 @@ void SteamServer::inventory_request_prices_result(SteamInventoryRequestPricesRes
 
 // REMOTE STORAGE CALL RESULTS //////////////////
 //
+// Response when reading a file asyncrounously with FileReadAsync.
+void SteamServer::file_read_async_complete(RemoteStorageFileReadAsyncComplete_t* call_data, bool io_failure){
+	if(io_failure){
+		steamworksError("file_read_async_complete");
+	}
+	else{
+		uint64_t handle = call_data->m_hFileReadAsync;
+		int result = call_data->m_eResult;
+		uint32 offset = call_data->m_nOffset;
+		uint32 read = call_data->m_cubRead;
+		// Was read complete?
+		PoolByteArray buffer;
+		buffer.resize(read);
+		bool complete = SteamRemoteStorage()->FileReadAsyncComplete(handle, buffer.write().ptr(), read);
+		// Create a dictionary and populate it with the results
+		Dictionary file_read;
+		file_read["result"] = result;
+		file_read["handle"] = handle;
+		file_read["buffer"] = buffer;
+		file_read["offset"] = offset;
+		file_read["read"] = read;
+		file_read["complete"] = complete;
+		emit_signal("file_read_async_complete", file_read);
+	}
+}
+
+// Response to a file being shared.
+void SteamServer::file_share_result(RemoteStorageFileShareResult_t* call_data, bool io_failure){
+	if(io_failure){
+		steamworksError("file_share_result");
+	}
+	else{
+		int result = call_data->m_eResult;
+		uint64_t handle = call_data->m_hFile;
+		char name[k_cchFilenameMax];
+		strcpy(name, call_data->m_rgchFilename);
+		emit_signal("file_share_result", result, handle, name);
+	}
+}
+
+// Response when writing a file asyncrounously with FileWriteAsync.
+void SteamServer::file_write_async_complete(RemoteStorageFileWriteAsyncComplete_t* call_data, bool io_failure){
+	if(io_failure){
+		steamworksError("file_write_async_complete");
+	}
+	else{
+		int result = call_data->m_eResult;
+		emit_signal("file_write_async_complete", result);
+	}
+}
+
 // Response when downloading UGC
 void SteamServer::download_ugc_result(RemoteStorageDownloadUGCResult_t* call_data, bool io_failure){
 	if(io_failure){
@@ -4748,8 +4664,8 @@ void SteamServer::item_updated(SubmitItemUpdateResult_t *call_data, bool io_fail
 	}
 	else{
 		EResult result = call_data->m_eResult;
-		bool accept_tos = call_data->m_bUserNeedsToAcceptWorkshopLegalAgreement;
-		emit_signal("item_updated", result, accept_tos);
+		bool need_to_accept_tos = call_data->m_bUserNeedsToAcceptWorkshopLegalAgreement;
+		emit_signal("item_updated", result, need_to_accept_tos);
 	}
 }
 
@@ -4893,7 +4809,6 @@ void SteamServer::_register_methods(){
 	register_method("getItemsByID", &SteamServer::getItemsByID);
 	register_method("getItemPrice", &SteamServer::getItemPrice);
 	register_method("getItemsWithPrices", &SteamServer::getItemsWithPrices);
-	register_method("getNumItemsWithPrices", &SteamServer::getNumItemsWithPrices);
 	register_method("getResultItemProperty", &SteamServer::getResultItemProperty);
 	register_method("getResultItems", &SteamServer::getResultItems);
 	register_method("getResultStatus", &SteamServer::getResultStatus);
@@ -5182,9 +5097,13 @@ void SteamServer::_register_methods(){
 	register_signal<SteamServer>("relay_network_status", "available", GODOT_VARIANT_TYPE_INT, "ping_measurement", GODOT_VARIANT_TYPE_INT, "available_config", GODOT_VARIANT_TYPE_INT, "available_relay", GODOT_VARIANT_TYPE_INT, "debug_message", GODOT_VARIANT_TYPE_STRING);
 
 	// REMOTE STORAGE SIGNALS ///////////////////
+	register_signal<SteamServer>("file_read_async_complete", "file_read", GODOT_VARIANT_TYPE_DICTIONARY);
+	register_signal<SteamServer>("file_share_result", "result", GODOT_VARIANT_TYPE_INT, "handle", GODOT_VARIANT_TYPE_INT, "name", GODOT_VARIANT_TYPE_STRING);
+	register_signal<SteamServer>("file_write_async_complete", "result", GODOT_VARIANT_TYPE_INT);
 	register_signal<SteamServer>("download_ugc_result", "result", GODOT_VARIANT_TYPE_INT, "download_data", GODOT_VARIANT_TYPE_DICTIONARY);
 	register_signal<SteamServer>("unsubscribe_item", "result", GODOT_VARIANT_TYPE_INT, "file_id", GODOT_VARIANT_TYPE_INT);
 	register_signal<SteamServer>("subscribe_item", "result", GODOT_VARIANT_TYPE_INT, "file_id", GODOT_VARIANT_TYPE_INT);
+	register_signal<SteamServer>("local_file_changed");
 
 	// UGC SIGNALS //////////////////////////////
 	register_signal<SteamServer>("add_app_dependency_result", "result", GODOT_VARIANT_TYPE_INT, "file_id", GODOT_VARIANT_TYPE_INT, "app_id", GODOT_VARIANT_TYPE_INT);
