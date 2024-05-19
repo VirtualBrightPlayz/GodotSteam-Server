@@ -7,7 +7,7 @@ on:
         description: 'Steamworks SDK Github tag:'
         required: true
         type: string
-        default: 'sdk-1.58'
+        default: 'sdk-1.59'
       godot_tag:
         description: 'Godot Github tag:'
         required: true
@@ -17,7 +17,7 @@ on:
         description: 'GodotSteam Server version number:'
         required: true
         type: string
-        default: '3.1'
+        default: '3.3'
 
 jobs:
   build_macos:

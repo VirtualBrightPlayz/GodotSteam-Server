@@ -55,10 +55,12 @@ jobs:
           ref: ${{ inputs.steamworks_sdk_tag }}
 
       - name: Copy Steamworks
+        shell: bash
         run: |
-          robocopy steamworks/public godotsteam_server/sdk
-          robocopy steamworks/redistributable_bin godotsteam_server/sdk
-          EXIT 0
+          cp -r steamworks/public godotsteam_server/sdk
+          cp -r steamworks/redistributable_bin godotsteam_server/sdk
+          ls -la 
+          ls -la godotsteam/sdk
 
       # Compile Godot-CPP
       - name: Compile godot-cpp
@@ -86,4 +88,4 @@ jobs:
           path: bin/win64/godotsteam_server.dll
           if-no-files-found: error
           overwrite: true
-          retention-days: 1
+          retention-days: 144

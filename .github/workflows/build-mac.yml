@@ -82,7 +82,7 @@ jobs:
           path: bin/osx/libgodotsteam_server-${{ matrix.architecture }}.dylib
           if-no-files-found: error
           overwrite: true
-          retention-days: 1
+          retention-days: 14
   
   bundle_universal:
     needs: [build_macos]
@@ -113,4 +113,4 @@ jobs:
           path: dylibs/libgodotsteam_server.dylib
           if-no-files-found: error
           overwrite: true
-          retention-days: 1
+          retention-days: 14
