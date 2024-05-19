@@ -18,14 +18,19 @@ Feel free to chat with us about GodotSteam on the [CoaguCo Discord server](https
 
 Current Build
 ----------
-You can [download pre-compiled versions _(currently v3.1)_ of this repo here](https://github.com/CoaguCo-Industries/GodotSteam-Server/releases).
+You can [download pre-compiled versions of this repo here](https://github.com/CoaguCo-Industries/GodotSteam-Server/releases).
 
-**Version 3.1 Changes**
-- Added: a missing constant
-- Changed: backported various fixes from non-server GodotSteam
-- Changed: updated various function arguments to match non-server GodotSteam
-- Changed: constants now live in `godotsteam_server_constants.h` like non-server GodotSteam
-- Changed: further fixes to initialization functions
+**Version 3.3 Changes**
+- Changed: constants list to add missing and remove unused
+- Changed: Networking Messages, Sockets, and Utils now use Steam IDs instead of identity system
+- Changed: various bits and pieces
+- Changed: IP logic for all related functions
+- Changed: `getResultStatus()` now returns the integer / enum
+- Changed: `getAuthSessionTicket()` now defaults to 0 for Steam ID
+- Fixed: wrong string IP conversions, ***thanks to jeremybeier***
+- Removed: Networking Types identity system and related bits
+- Removed: P2P Networking constants as they are duplicates of the P2PSend enum
+- Removed: `getIdentity()` as it is redundant now
 
 [You can read more change-logs here](https://godotsteam.com/changelog/server_gdnative/).
 

@@ -10,13 +10,11 @@
 #endif
 
 
-/////////////////////////////////////////////////
 ///// HEADER INCLUDES
 /////////////////////////////////////////////////
 //
 // Include GodotSteam Server header
 #include "godotsteam_server.h"
-#include "godotsteam_server_constants.h"
 
 // Include some system headers
 #include "string.h"
@@ -26,7 +24,6 @@
 using namespace godot;
 
 
-/////////////////////////////////////////////////
 ///// STEAM OBJECT WITH CALLBACKS
 /////////////////////////////////////////////////
 //
@@ -85,10 +82,50 @@ SteamServer::SteamServer():
 }
 
 
-/////////////////////////////////////////////////
 ///// INTERNAL FUNCTIONS
 /////////////////////////////////////////////////
 //
+// Helper function to turn an array of options into an array of SteamNetworkingConfigValue_t structs
+const SteamNetworkingConfigValue_t *SteamServer::convertOptionsArray(Array options) {
+	// Get the number of option arrays in the array.
+	int options_size = options.size();
+	// Create the array for options.
+	SteamNetworkingConfigValue_t *option_array = new SteamNetworkingConfigValue_t[options_size];
+	// If there are options
+	if (options_size > 0) {
+		// Populate the options
+		for (int i = 0; i < options_size; i++) {
+			SteamNetworkingConfigValue_t this_option;
+			Array sent_option = options[i];
+			// Get the configuration value.
+			// This is a convoluted way of doing it but can't seem to cast the value as an enum so here we are.
+			ESteamNetworkingConfigValue this_value = ESteamNetworkingConfigValue((int)sent_option[0]);
+			if ((int)sent_option[1] == 1) {
+				this_option.SetInt32(this_value, sent_option[2]);
+			}
+			else if ((int)sent_option[1] == 2) {
+				this_option.SetInt64(this_value, sent_option[2]);
+			}
+			else if ((int)sent_option[1] == 3) {
+				this_option.SetFloat(this_value, sent_option[2]);
+			}
+			else if ((int)sent_option[1] == 4) {
+				char *this_string = { 0 };
+				String passed_string = sent_option[2];
+				strcpy(this_string, passed_string.utf8().get_data());
+				this_option.SetString(this_value, this_string);
+			}
+			else {
+				Object *this_pointer;
+				this_pointer = sent_option[2];
+				this_option.SetPtr(this_value, this_pointer);
+			}
+			option_array[i] = this_option;
+		}
+	}
+	return option_array;
+}
+
 // Creating a Steam ID for internal use
 CSteamID SteamServer::createSteamID(uint64_t steam_id){
 	CSteamID converted_steam_id;
@@ -96,14 +133,90 @@ CSteamID SteamServer::createSteamID(uint64_t steam_id){
 	return converted_steam_id;
 }
 
+// Convert a Steam ID to a Steam Identity
+SteamNetworkingIdentity SteamServer::getIdentityFromSteamID(uint64_t steam_id) {
+	SteamNetworkingIdentity remote_identity;
+	remote_identity.SetSteamID64(steam_id);
+	return remote_identity;
+}
 
-/////////////////////////////////////////////////
+// Convert a string IP address to an integer
+uint32 SteamServer::getIPFromString(String ip_string) {
+	uint32 ip_address = 0;
+
+	SteamNetworkingIPAddr this_address;
+	this_address.Clear();
+	
+	if (this_address.ParseString(ip_string.utf8().get_data())) {
+		ip_address = this_address.GetIPv4();
+	}
+	return ip_address;
+}
+
+// Convert a Steam IP Address object to an integer
+uint32 SteamServer::getIPFromSteamIP(SteamNetworkingIPAddr this_address) {
+	return this_address.GetIPv4();
+}
+
+// Get the Steam ID from an identity struct
+uint64_t SteamServer::getSteamIDFromIdentity(SteamNetworkingIdentity this_identity) {
+	uint64_t this_steam_id = this_identity.GetSteamID64();
+	return this_steam_id;
+}
+
+// Convert an integer to a Steam IP Address
+SteamNetworkingIPAddr SteamServer::getSteamIPFromInt(uint32 ip_integer) {
+	SteamNetworkingIPAddr this_address;
+	this_address.Clear();
+
+	if (ip_integer > 0) {
+		this_address.SetIPv4(ip_integer, 0);
+	}
+	return this_address;
+}
+
+// Convert an IP string to a Steam IP Address
+SteamNetworkingIPAddr SteamServer::getSteamIPFromString(String ip_string) {
+	SteamNetworkingIPAddr this_address;
+	this_address.Clear();
+	
+	if (this_address.ParseString(ip_string.utf8().get_data())) {
+		this_address.GetIPv4();
+	}
+	return this_address;
+}
+
+// Convert an integer IP address to a string
+String SteamServer::getStringFromIP(uint32 ip_integer) {
+	String ip_address = "";
+
+	SteamNetworkingIPAddr this_address;
+	this_address.Clear();
+
+	if (ip_integer > 0) {
+		this_address.SetIPv4(ip_integer, 0);
+		char this_ip[16];
+		this_address.ToString(this_ip, 16, false);
+		ip_address = String(this_ip);
+	}
+	return ip_address;
+}
+
+// Convert a Steam IP Address to a string
+String SteamServer::getStringFromSteamIP(SteamNetworkingIPAddr this_address) {
+	char this_ip[16];
+	this_address.ToString(this_ip, 16, false);
+	return String(this_ip);
+}
+
+
 ///// MAIN FUNCTIONS
 /////////////////////////////////////////////////
 //
-// No official notes, but should be checking if the server is secured.
-bool SteamServer::isServerSecure(){
-	return SteamGameServer_BSecure();
+// Convert a SteamID64 into a SteamID
+uint32_t SteamServer::getSteamID32(uint64_t steam_id) {
+	CSteamID this_steam_id = (uint64)steam_id;
+	return this_steam_id.GetAccountID();
 }
 
 // Gets the server's Steam ID.
@@ -111,35 +224,57 @@ uint64_t SteamServer::getServerSteamID(){
 	return SteamGameServer_GetSteamID();
 }
 
+// Is this an anonymous account?
+bool SteamServer::isAnonAccount(uint64_t steam_id) {
+	CSteamID this_steam_id = (uint64)steam_id;
+	return this_steam_id.BAnonAccount();
+}
+
+// Is this an anonymous user account? Used to create an account or reset a password, but do not try to do this.
+bool SteamServer::isAnonUserAccount(uint64_t steam_id) {
+	CSteamID this_steam_id = (uint64)steam_id;
+	return this_steam_id.BAnonUserAccount();
+}
+
+// Is this a chat account ID?
+bool SteamServer::isChatAccount(uint64_t steam_id) {
+	CSteamID this_steam_id = (uint64)steam_id;
+	return this_steam_id.BChatAccount();
+}
+
+// Is this a clan account ID?
+bool SteamServer::isClanAccount(uint64_t steam_id) {
+	CSteamID this_steam_id = (uint64)steam_id;
+	return this_steam_id.BClanAccount();
+}
+
+// Is this a faked up Steam ID for a PSN friend account?
+bool SteamServer::isConsoleUserAccount(uint64_t steam_id) {
+	CSteamID this_steam_id = (uint64)steam_id;
+	return this_steam_id.BConsoleUserAccount();
+}
+
+// Is this an individual user account ID?
+bool SteamServer::isIndividualAccount(uint64_t steam_id) {
+	CSteamID this_steam_id = (uint64)steam_id;
+	return this_steam_id.BIndividualAccount();
+}
+
+// Is this a lobby account ID?
+bool SteamServer::isLobby(uint64_t steam_id) {
+	CSteamID this_steam_id = (uint64)steam_id;
+	return this_steam_id.IsLobby();
+}
+
+// No official notes, but should be checking if the server is secured.
+bool SteamServer::isServerSecure(){
+	return SteamGameServer_BSecure();
+}
+
 // Initialize SteamGameServer client and interface objects, and set server properties which may not be changed.
 // After calling this function, you should set any additional server parameters, and then logOnAnonymous() or logOn().
 bool SteamServer::serverInit(String ip, uint16 game_port, uint16 query_port, int server_mode, String version_number){
-	// Convert the server mode back
-	EServerMode mode;
-	if(server_mode == 1){
-		mode = eServerModeNoAuthentication;
-	}
-	else if(server_mode == 2){
-		mode = eServerModeAuthentication;
-	}
-	else{
-		mode = eServerModeAuthenticationAndSecure;
-	}
-
-	uint32_t ip_address = 0;
-	if(!ip.empty() || ip != "0"){
-		// Resolve address and convert it
-		if(ip.is_valid_ip_address()){
-			char ip_bytes[4];
-			sscanf(ip.utf8().get_data(), "%hhu.%hhu.%hhu.%hhu", &ip_bytes[3], &ip_bytes[2], &ip_bytes[1], &ip_bytes[0]);
-			ip_address = ip_bytes[0] | ip_bytes[1] << 8 | ip_bytes[2] << 16 | ip_bytes[3] << 24;
-		}
-		else{
-			return false;
-		}
-	}
-
-	if(!SteamGameServer_Init(ip_address, (uint16)game_port, (uint16)query_port, mode, version_number.utf8().get_data())){
+	if(!SteamGameServer_Init(getIPFromString(ip), (uint16)game_port, (uint16)query_port, (EServerMode)server_mode, version_number.utf8().get_data())){
 		return false;
 	}
 
@@ -150,31 +285,9 @@ bool SteamServer::serverInit(String ip, uint16 game_port, uint16 query_port, int
 // After calling this function, you should set any additional server parameters, and then logOnAnonymous() or logOn().
 // On success STEAM_API_INIT_RESULT_OK is returned.  Otherwise, if error_message is non-NULL, it will receive a non-localized message that explains the reason for the failure
 Dictionary SteamServer::serverInitEx(String ip, uint16 game_port, uint16 query_port, int server_mode, String version_number){
-	// Convert the server mode back
-	EServerMode mode;
-	if(server_mode == 1){
-		mode = eServerModeNoAuthentication;
-	}
-	else if(server_mode == 2){
-		mode = eServerModeAuthentication;
-	}
-	else{
-		mode = eServerModeAuthenticationAndSecure;
-	}
-
-	uint32_t ip_address = 0;
-	if(!ip.empty() || ip != "0"){
-		// Resolve address and convert it
-		if(ip.is_valid_ip_address()){
-			char ip_bytes[4];
-			sscanf(ip.utf8().get_data(), "%hhu.%hhu.%hhu.%hhu", &ip_bytes[3], &ip_bytes[2], &ip_bytes[1], &ip_bytes[0]);
-			ip_address = ip_bytes[0] | ip_bytes[1] << 8 | ip_bytes[2] << 16 | ip_bytes[3] << 24;
-		}
-	}
-
 	char error_message[STEAM_MAX_ERROR_MESSAGE] = "Server initialized successfully";
 	ESteamAPIInitResult initialize_result = k_ESteamAPIInitResult_FailedGeneric;
-	initialize_result = SteamGameServer_InitEx(ip_address, game_port, query_port, mode, version_number.utf8().get_data(), &error_message);
+	initialize_result = SteamGameServer_InitEx(getIPFromString(ip), game_port, query_port, (EServerMode)server_mode, version_number.utf8().get_data(), &error_message);
 
 	Dictionary server_initialize;
 	server_initialize["status"] = initialize_result;
@@ -194,7 +307,6 @@ void SteamServer::serverShutdown(){
 }
 
 
-/////////////////////////////////////////////////
 ///// GAME SERVER FUNCTIONS
 /////////////////////////////////////////////////
 //
@@ -390,7 +502,7 @@ void SteamServer::setRegion(String region){
 // NOTE: These functions are player list management / authentication.
 //
 // Retrieve ticket to be sent to the entity who wishes to authenticate you (using BeginAuthSession API).
-Dictionary SteamServer::getAuthSessionTicket(String identity_reference){
+Dictionary SteamServer::getAuthSessionTicket(uint64_t remote_steam_id){
 	// Create the dictionary to use
 	Dictionary auth_ticket;
 	if(SteamGameServer() != NULL){
@@ -400,9 +512,9 @@ Dictionary SteamServer::getAuthSessionTicket(String identity_reference){
 		buffer.resize(ticket_size);
 		// If no reference is passed, just use NULL
 		// Not pretty but will work for now
-		if(identity_reference  != ""){
-			const SteamNetworkingIdentity identity = networking_identities[identity_reference.utf8().get_data()];
-			id = SteamGameServer()->GetAuthSessionTicket(buffer.write().ptr(), ticket_size, &ticket_size, &identity);
+		if(remote_steam_id == 0){
+			SteamNetworkingIdentity auth_identity = getIdentityFromSteamID(remote_steam_id);
+			id = SteamGameServer()->GetAuthSessionTicket(buffer.write().ptr(), ticket_size, &ticket_size, &auth_identity);
 		}
 		else{
 			id = SteamGameServer()->GetAuthSessionTicket(buffer.write().ptr(), ticket_size, &ticket_size, NULL);
@@ -468,14 +580,8 @@ Dictionary SteamServer::handleIncomingPacket(int packet, String ip, uint16 port)
 	}
 	PoolByteArray data;
 	data.resize(packet);
-	// Resolve address and convert it
-	if(ip.is_valid_ip_address()){
-		char ip_bytes[4];
-		sscanf(ip.utf8().get_data(), "%hhu.%hhu.%hhu.%hhu", &ip_bytes[3], &ip_bytes[2], &ip_bytes[1], &ip_bytes[0]);
-		uint32_t ip4 = ip_bytes[0] | ip_bytes[1] << 8 | ip_bytes[2] << 16 | ip_bytes[3] << 24;
-		if(SteamGameServer()->HandleIncomingPacket(data.write().ptr(), packet, ip4, (uint16)port)){
-			result["data"] = data;
-		}
+	if(SteamGameServer()->HandleIncomingPacket(data.write().ptr(), packet, getIPFromString(ip), (uint16)port)){
+		result["data"] = data;
 	}
 	return result;
 }
@@ -542,7 +648,6 @@ void SteamServer::computeNewPlayerCompatibility(uint64_t steam_id){
 }
 
 
-/////////////////////////////////////////////////
 ///// GAME SERVER STATS
 /////////////////////////////////////////////////
 //
@@ -651,8 +756,6 @@ bool SteamServer::updateUserAvgRateStat(uint64_t steam_id, String name, float th
 }
 
 
-
-/////////////////////////////////////////////////
 ///// HTTP
 /////////////////////////////////////////////////
 //
@@ -868,13 +971,12 @@ bool SteamServer::setHTTPRequestUserAgentInfo(uint32 request_handle, String user
 }
 
 
-/////////////////////////////////////////////////
 ///// INVENTORY
+/////
+///// When dealing with any inventory handles, you should call CheckResultSteamID on the result handle when it completes to verify that a remote player is not pretending to have a different user's inventory.
+///// Also, you must call DestroyResult on the provided inventory result when you are done with it.
 /////////////////////////////////////////////////
 //
-// When dealing with any inventory handles, you should call CheckResultSteamID on the result handle when it completes to verify that a remote player is not pretending to have a different user's inventory.
-// Also, you must call DestroyResult on the provided inventory result when you are done with it.
-//!
 // Grant a specific one-time promotional item to the current user.
 int32 SteamServer::addPromoItem(uint32 item){
 	int32 new_inventory_handle = 0;
@@ -887,7 +989,7 @@ int32 SteamServer::addPromoItem(uint32 item){
 	return new_inventory_handle;
 }
 
-// Grant a specific one-time promotional items to the current user.
+// Grant a specific one-tsime promotional items to the current user.
 int32 SteamServer::addPromoItems(PoolIntArray items){
 	int32 new_inventory_handle = 0;
 	if(SteamInventory() != NULL){
@@ -1032,14 +1134,17 @@ int32 SteamServer::getItemsByID(PoolIntArray id_array){
 }
 
 // After a successful call to RequestPrices, you can call this method to get the pricing for a specific item definition.
-uint64_t SteamServer::getItemPrice(uint32 definition){
-	if(SteamInventory() == NULL){
-		return 0;
+Dictionary SteamServer::getItemPrice(uint32 definition) {
+	Dictionary prices;
+	if (SteamInventory() == NULL) {
+		return prices;
 	}
 	uint64 price = 0;
-	uint64 basePrice = 0;
-	SteamInventory()->GetItemPrice(definition, &price, &basePrice);
-	return price;
+	uint64 base_price = 0;
+	SteamInventory()->GetItemPrice(definition, &price, &base_price);
+	prices["price"] = (uint64_t)price;
+	prices["base_price"] = (uint64_t)base_price;
+	return prices;
 }
 
 // After a successful call to RequestPrices, you can call this method to get all the pricing for applicable item definitions. Use the result of GetNumItemsWithPrices as the the size of the arrays that you pass in.
@@ -1118,37 +1223,15 @@ Array SteamServer::getResultItems(int32 this_inventory_handle){
 }
 
 // Find out the status of an asynchronous inventory result handle.
-String SteamServer::getResultStatus(int32 this_inventory_handle){
+int SteamServer::getResultStatus(int32 this_inventory_handle){
 	if(SteamInventory() == NULL){
-		return "";
+		return k_EResultFail;
 	}
 	// If no inventory handle is passed, use internal one
 	if(this_inventory_handle == 0){
 		this_inventory_handle = inventory_handle;
 	}
-	int result = SteamInventory()->GetResultStatus((SteamInventoryResult_t)this_inventory_handle);
-	// Parse result
-	if(result == k_EResultPending){
-		return "Still in progress.";
-	}
-	else if(result == k_EResultOK){
-		return "Finished successfully.";
-	}
-	else if(result == k_EResultExpired){
-		return "Finished but may be out-of-date.";
-	}
-	else if(result == k_EResultInvalidParam){
-		return "ERROR: invalid API call parameters.";
-	}
-	else if(result == k_EResultServiceUnavailable){
-		return "ERROR: server temporarily down; retry later.";
-	}
-	else if(result == k_EResultLimitExceeded){
-		return "ERROR: operation would exceed per-user inventory limits.";
-	}
-	else{
-		return "ERROR: generic / unknown.";
-	}
+	return SteamInventory()->GetResultStatus((SteamInventoryResult_t)this_inventory_handle);
 }
 
 // Gets the server time at which the result was generated.
@@ -1344,16 +1427,15 @@ bool SteamServer::setPropertyFloat(uint64_t item_id, String name, float value, u
 }
 
 
-/////////////////////////////////////////////////
 ///// NETWORKING
 /////////////////////////////////////////////////
 //
 // This allows the game to specify accept an incoming packet.
-bool SteamServer::acceptP2PSessionWithUser(uint64_t steam_id_remote) {
+bool SteamServer::acceptP2PSessionWithUser(uint64_t remote_steam_id) {
 	if (SteamNetworking() == NULL) {
 		return false;
 	}
-	CSteamID steam_id = createSteamID(steam_id_remote);
+	CSteamID steam_id = createSteamID(remote_steam_id);
 	return SteamNetworking()->AcceptP2PSessionWithUser(steam_id);
 }
 
@@ -1366,30 +1448,30 @@ bool SteamServer::allowP2PPacketRelay(bool allow) {
 }
 
 // Closes a P2P channel when you're done talking to a user on the specific channel.
-bool SteamServer::closeP2PChannelWithUser(uint64_t steam_id_remote, int channel) {
+bool SteamServer::closeP2PChannelWithUser(uint64_t remote_steam_id, int channel) {
 	if (SteamNetworking() == NULL) {
 		return false;
 	}
-	CSteamID steam_id = createSteamID(steam_id_remote);
+	CSteamID steam_id = createSteamID(remote_steam_id);
 	return SteamNetworking()->CloseP2PChannelWithUser(steam_id, channel);
 }
 
 // This should be called when you're done communicating with a user, as this will free up all of the resources allocated for the connection under-the-hood.
-bool SteamServer::closeP2PSessionWithUser(uint64_t steam_id_remote) {
+bool SteamServer::closeP2PSessionWithUser(uint64_t remote_steam_id) {
 	if (SteamNetworking() == NULL) {
 		return false;
 	}
-	CSteamID steam_id = createSteamID(steam_id_remote);
+	CSteamID steam_id = createSteamID(remote_steam_id);
 	return SteamNetworking()->CloseP2PSessionWithUser(steam_id);
 }
 
 // Fills out a P2PSessionState_t structure with details about the connection like whether or not there is an active connection.
-Dictionary SteamServer::getP2PSessionState(uint64_t steam_id_remote) {
+Dictionary SteamServer::getP2PSessionState(uint64_t remote_steam_id) {
 	Dictionary result;
 	if (SteamNetworking() == NULL) {
 		return result;
 	}
-	CSteamID steam_id = createSteamID(steam_id_remote);
+	CSteamID steam_id = createSteamID(remote_steam_id);
 	P2PSessionState_t p2pSessionState;
 	bool success = SteamNetworking()->GetP2PSessionState(steam_id, &p2pSessionState);
 	if (!success) {
@@ -1427,9 +1509,9 @@ Dictionary SteamServer::readP2PPacket(uint32_t packet, int channel){
 	uint32_t bytesRead = 0;
 	if (SteamNetworking()->ReadP2PPacket(data.write().ptr(), packet, &bytesRead, &steam_id, channel)){
 		data.resize(bytesRead);
-		uint64_t steam_id_remote = steam_id.ConvertToUint64();
+		uint64_t remote_steam_id = steam_id.ConvertToUint64();
 		result["data"] = data;
-		result["steam_id_remote"] = steam_id_remote;
+		result["remote_steam_id"] = remote_steam_id;
 	}
 	else {
 		data.resize(0);
@@ -1438,62 +1520,57 @@ Dictionary SteamServer::readP2PPacket(uint32_t packet, int channel){
 }
 
 // Sends a P2P packet to the specified user.
-bool SteamServer::sendP2PPacket(uint64_t steam_id_remote, PoolByteArray data, int send_type, int channel){
+bool SteamServer::sendP2PPacket(uint64_t remote_steam_id, PoolByteArray data, int send_type, int channel){
 	if (SteamNetworking() == NULL) {
 		return false;
 	}
-	CSteamID steam_id = createSteamID(steam_id_remote);
+	CSteamID steam_id = createSteamID(remote_steam_id);
 	return SteamNetworking()->SendP2PPacket(steam_id, data.read().ptr(), data.size(), EP2PSend(send_type), channel);
 }
 
 
-/////////////////////////////////////////////////
 ///// NETWORKING MESSAGES
 /////////////////////////////////////////////////
 //
 // AcceptSessionWithUser() should only be called in response to a SteamP2PSessionRequest_t callback SteamP2PSessionRequest_t will be posted if another user tries to send you a message, and you haven't tried to talk to them.
-bool SteamServer::acceptSessionWithUser(String identity_reference){
+bool SteamServer::acceptSessionWithUser(uint64_t remote_steam_id){
 	if(SteamNetworkingMessages() == NULL){
 		return false;
 	}
-	return SteamNetworkingMessages()->AcceptSessionWithUser(networking_identities[identity_reference.utf8().get_data()]);
+	return SteamNetworkingMessages()->AcceptSessionWithUser(getIdentityFromSteamID(remote_steam_id));
 }
 
 // Call this  when you're done talking to a user on a specific channel. Once all open channels to a user have been closed, the open session to the user will be closed, and any new data from this user will trigger a SteamP2PSessionRequest_t callback.
-bool SteamServer::closeChannelWithUser(String identity_reference, int channel){
+bool SteamServer::closeChannelWithUser(uint64_t remote_steam_id, int channel){
 	if(SteamNetworkingMessages() == NULL){
 		return false;
 	}
-	return SteamNetworkingMessages()->CloseChannelWithUser(networking_identities[identity_reference.utf8().get_data()], channel);
+	return SteamNetworkingMessages()->CloseChannelWithUser(getIdentityFromSteamID(remote_steam_id), channel);
 }
 
 // Call this when you're done talking to a user to immediately free up resources under-the-hood.
-bool SteamServer::closeSessionWithUser(String identity_reference){
+bool SteamServer::closeSessionWithUser(uint64_t remote_steam_id){
 	if(SteamNetworkingMessages() == NULL){
 		return false;
 	}
-	return SteamNetworkingMessages()->CloseSessionWithUser(networking_identities[identity_reference.utf8().get_data()]);
+	return SteamNetworkingMessages()->CloseSessionWithUser(getIdentityFromSteamID(remote_steam_id));
 }
 
 // Returns information about the latest state of a connection, if any, with the given peer.
-Dictionary SteamServer::getSessionConnectionInfo(String identity_reference, bool get_connection, bool get_status){
+Dictionary SteamServer::getSessionConnectionInfo(uint64_t remote_steam_id, bool get_connection, bool get_status){
 	Dictionary connection_info;
 	if(SteamNetworkingMessages() != NULL){
 		SteamNetConnectionInfo_t this_info;
 		SteamNetConnectionRealTimeStatus_t this_status;
-		int connection_state = SteamNetworkingMessages()->GetSessionConnectionInfo(networking_identities[identity_reference.utf8().get_data()], &this_info, &this_status);
+		int connection_state = SteamNetworkingMessages()->GetSessionConnectionInfo(getIdentityFromSteamID(remote_steam_id), &this_info, &this_status);
 		// Parse the data to a dictionary
 		connection_info["connection_state"] = connection_state;
 		// If getting the connection information
 		if(get_connection){
-			char identity[STEAM_BUFFER_SIZE];
-			this_info.m_identityRemote.ToString(identity, STEAM_BUFFER_SIZE);
-			connection_info["identity"] = identity;
+			connection_info["identity"] = getSteamIDFromIdentity(this_info.m_identityRemote);
 			connection_info["user_data"] = (uint64_t)this_info.m_nUserData;
 			connection_info["listen_socket"] = this_info.m_hListenSocket;
-			char ip_address[STEAM_BUFFER_SIZE];
-			this_info.m_addrRemote.ToString(ip_address, STEAM_BUFFER_SIZE, true);
-			connection_info["remote_address"] = ip_address;
+			connection_info["remote_address"] = getStringFromSteamIP(this_info.m_addrRemote);
 			connection_info["remote_pop"] = this_info.m_idPOPRemote;
 			connection_info["pop_relay"] = this_info.m_idPOPRelay;
 			connection_info["connection_state"] = this_info.m_eState;
@@ -1545,9 +1622,7 @@ Array SteamServer::receiveMessagesOnChannel(int channel, int max_messages){
 			message["payload"] = data;
 			message["size"] = message_size;
 			message["connection"] = channel_messages[i]->m_conn;
-			char identity[STEAM_BUFFER_SIZE];
-			channel_messages[i]->m_identityPeer.ToString(identity, STEAM_BUFFER_SIZE);
-			message["identity"] = identity;
+			message["identity"] = getSteamIDFromIdentity(channel_messages[i]->m_identityPeer);
 			message["receiver_user_data"] = (uint64_t)channel_messages[i]->m_nConnUserData;	// Not used when sending messages
 			message["time_received"] = (uint64_t)channel_messages[i]->m_usecTimeReceived;
 			message["message_number"] = (uint64_t)channel_messages[i]->m_nMessageNumber;
@@ -1564,26 +1639,23 @@ Array SteamServer::receiveMessagesOnChannel(int channel, int max_messages){
 }
 
 // Sends a message to the specified host. If we don't already have a session with that user, a session is implicitly created. There might be some handshaking that needs to happen before we can actually begin sending message data.
-int SteamServer::sendMessageToUser(String identity_reference, const PoolByteArray data, int flags, int channel){
+int SteamServer::sendMessageToUser(uint64_t remote_steam_id, const PoolByteArray data, int flags, int channel){
 	if(SteamNetworkingMessages() == NULL){
 		return 0;
 	}
-	return SteamNetworkingMessages()->SendMessageToUser(networking_identities[identity_reference.utf8().get_data()], data.read().ptr(), data.size(), flags, channel);
+	return SteamNetworkingMessages()->SendMessageToUser(getIdentityFromSteamID(remote_steam_id), data.read().ptr(), data.size(), flags, channel);
 }
 
 
-/////////////////////////////////////////////////
 ///// NETWORKING SOCKETS
 /////////////////////////////////////////////////
 //
 // Creates a "server" socket that listens for clients to connect to by calling ConnectByIPAddress, over ordinary UDP (IPv4 or IPv6)
-uint32 SteamServer::createListenSocketIP(String ip_reference, Array options){
+uint32 SteamServer::createListenSocketIP(String ip_address, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
-	const SteamNetworkingConfigValue_t *these_options = convertOptionsArray(options);
-	uint32 listen_socket = SteamNetworkingSockets()->CreateListenSocketIP(ip_addresses[ip_reference.utf8().get_data()], options.size(), these_options);
-	delete[] these_options;
+	uint32 listen_socket = SteamNetworkingSockets()->CreateListenSocketIP(getSteamIPFromString(ip_address), options.size(), convertOptionsArray(options));
 	return listen_socket;
 }
 
@@ -1592,18 +1664,16 @@ uint32 SteamServer::createListenSocketP2P(int virtual_port, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
-	const SteamNetworkingConfigValue_t *these_options = convertOptionsArray(options);
-	uint32 listen_socket = SteamNetworkingSockets()->CreateListenSocketP2P(virtual_port, options.size(), these_options);
-	delete[] these_options;
+	uint32 listen_socket = SteamNetworkingSockets()->CreateListenSocketP2P(virtual_port, options.size(), convertOptionsArray(options));
 	return listen_socket;
 }
 
 // Begin connecting to a server that is identified using a platform-specific identifier. This uses the default rendezvous service, which depends on the platform and library configuration. (E.g. on Steam, it goes through the steam backend.) The traffic is relayed over the Steam Datagram Relay network.
-uint32 SteamServer::connectP2P(String identity_reference, int virtual_port, Array options){
+uint32 SteamServer::connectP2P(uint64_t remote_steam_id, int virtual_port, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
-	return SteamNetworkingSockets()->ConnectP2P(networking_identities[identity_reference.utf8().get_data()], virtual_port, sizeof(options), convertOptionsArray(options));
+	return SteamNetworkingSockets()->ConnectP2P(getIdentityFromSteamID(remote_steam_id), virtual_port, sizeof(options), convertOptionsArray(options));
 }
 
 // Begin connecting to a server listen socket that is identified using an [ip-address]:[port], i.e. 127.0.0.1:27015. Used with createListenSocketIP
@@ -1611,22 +1681,15 @@ uint32 SteamServer::connectByIPAddress(String ip_address_with_port, Array option
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
-	
-	SteamNetworkingIPAddr steamAddr;
-	steamAddr.Clear();
-	steamAddr.ParseString(ip_address_with_port.utf8().get_data());
-
-	return SteamNetworkingSockets()->ConnectByIPAddress(steamAddr, options.size(), convertOptionsArray(options));
+	return SteamNetworkingSockets()->ConnectByIPAddress(getSteamIPFromString(ip_address_with_port), options.size(), convertOptionsArray(options));
 }
 
 // Client call to connect to a server hosted in a Valve data center, on the specified virtual port. You must have placed a ticket for this server into the cache, or else this connect attempt will fail!
-uint32 SteamServer::connectToHostedDedicatedServer(String identity_reference, int virtual_port, Array options){
+uint32 SteamServer::connectToHostedDedicatedServer(uint64_t remote_steam_id, int virtual_port, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
-	const SteamNetworkingConfigValue_t *these_options = convertOptionsArray(options);
-	uint32 listen_socket = SteamNetworkingSockets()->ConnectToHostedDedicatedServer(networking_identities[identity_reference.utf8().get_data()], virtual_port, options.size(), these_options);
-	delete[] these_options;
+	uint32 listen_socket = SteamNetworkingSockets()->ConnectToHostedDedicatedServer(getIdentityFromSteamID(remote_steam_id), virtual_port, options.size(), convertOptionsArray(options));
 	return listen_socket;
 }
 
@@ -1655,17 +1718,16 @@ bool SteamServer::closeListenSocket(uint32 socket){
 }
 
 // Create a pair of connections that are talking to each other, e.g. a loopback connection. This is very useful for testing, or so that your client/server code can work the same even when you are running a local "server".
-Dictionary SteamServer::createSocketPair(bool loopback, String identity_reference1, String identity_reference2){
+Dictionary SteamServer::createSocketPair(bool loopback, uint64_t remote_steam_id1, uint64_t remote_steam_id2){
 	// Create a dictionary to populate
 	Dictionary connection_pair;
 	if(SteamNetworkingSockets() != NULL){
-		// Turn the strings back to structs - Should be a check for failure to parse from string
-		const SteamNetworkingIdentity identity_struct1 = networking_identities[identity_reference1.utf8().get_data()];
-		const SteamNetworkingIdentity identity_struct2 = networking_identities[identity_reference2.utf8().get_data()];
 		// Get connections
 		uint32 connection1 = 0;
 		uint32 connection2 = 0;
-		bool success = SteamNetworkingSockets()->CreateSocketPair(&connection1, &connection2, loopback, &identity_struct1, &identity_struct2);
+		SteamNetworkingIdentity remote_identity1 = getIdentityFromSteamID(remote_steam_id1);
+		SteamNetworkingIdentity remote_identity2 = getIdentityFromSteamID(remote_steam_id2);
+		bool success = SteamNetworkingSockets()->CreateSocketPair(&connection1, &connection2, loopback, &remote_identity1, &remote_identity2);
 		// Populate the dictionary
 		connection_pair["success"] = success;
 		connection_pair["connection1"] = connection1;
@@ -1735,9 +1797,7 @@ Array SteamServer::receiveMessagesOnConnection(uint32 connection_handle, int max
 			message["payload"] = data;
 			message["size"] = message_size;
 			message["connection"] = connection_messages[i]->m_conn;
-			char identity[STEAM_BUFFER_SIZE];
-			connection_messages[i]->m_identityPeer.ToString(identity, STEAM_BUFFER_SIZE);
-			message["identity"] = identity;
+			message["identity"] = getSteamIDFromIdentity(connection_messages[i]->m_identityPeer);
 			message["receiver_user_data"] = (uint64_t)connection_messages[i]->m_nConnUserData; // Not used when sending messages
 			message["time_received"] = (uint64_t)connection_messages[i]->m_usecTimeReceived;
 			message["message_number"] = (uint64_t)connection_messages[i]->m_nMessageNumber;
@@ -1801,9 +1861,7 @@ Array SteamServer::receiveMessagesOnPollGroup(uint32 poll_group, int max_message
 			message["payload"] = data;
 			message["size"] = message_size;
 			message["connection"] = poll_messages[i]->m_conn;
-			char identity[STEAM_BUFFER_SIZE];
-			poll_messages[i]->m_identityPeer.ToString(identity, STEAM_BUFFER_SIZE);
-			message["identity"] = identity;
+			message["identity"] = getSteamIDFromIdentity(poll_messages[i]->m_identityPeer);
 			message["receiver_user_data"] = (uint64_t)poll_messages[i]->m_nConnUserData;
 			message["time_received"] = (uint64_t)poll_messages[i]->m_usecTimeReceived;
 			message["message_number"] = (uint64_t)poll_messages[i]->m_nMessageNumber;
@@ -1825,14 +1883,10 @@ Dictionary SteamServer::getConnectionInfo(uint32 connection_handle){
 	if(SteamNetworkingSockets() != NULL){
 		SteamNetConnectionInfo_t info;
 		if(SteamNetworkingSockets()->GetConnectionInfo((HSteamNetConnection)connection_handle, &info)){
-			char identity[STEAM_BUFFER_SIZE];
-			info.m_identityRemote.ToString(identity, STEAM_BUFFER_SIZE);
-			connection_info["identity"] = identity;
+			connection_info["identity"] = getSteamIDFromIdentity(info.m_identityRemote);
 			connection_info["user_data"] = (uint64_t)info.m_nUserData;
 			connection_info["listen_socket"] = info.m_hListenSocket;
-			char ip_address[STEAM_BUFFER_SIZE];
-			info.m_addrRemote.ToString(ip_address, STEAM_BUFFER_SIZE, true);
-			connection_info["remote_address"] = ip_address;
+			connection_info["remote_address"] = getStringFromSteamIP(info.m_addrRemote);
 			connection_info["remote_pop"] = info.m_idPOPRemote;
 			connection_info["pop_relay"] = info.m_idPOPRelay;
 			connection_info["connection_state"] = info.m_eState;
@@ -1846,16 +1900,16 @@ Dictionary SteamServer::getConnectionInfo(uint32 connection_handle){
 
 // Returns very detailed connection stats in diagnostic text format. Useful for dumping to a log, etc. The format of this information is subject to change.
 Dictionary SteamServer::getDetailedConnectionStatus(uint32 connection){
-	Dictionary connectionStatus;
-	if(SteamNetworkingSockets() != NULL){
+	Dictionary connection_status;
+	if (SteamNetworkingSockets() != NULL) {
 		char buffer[STEAM_LARGE_BUFFER_SIZE];
 		int success = SteamNetworkingSockets()->GetDetailedConnectionStatus((HSteamNetConnection)connection, buffer, STEAM_LARGE_BUFFER_SIZE);
 		// Add data to dictionary
-		connectionStatus["success"] = success;
-		connectionStatus["status"] = buffer;
+		connection_status["success"] = success;
+		connection_status["status"] = buffer;
 	}
 	// Send the data back to the user
-	return connectionStatus; 
+	return connection_status;
 }
 
 // Fetch connection user data. Returns -1 if handle is invalid or if you haven't set any userdata on the connection.
@@ -1892,28 +1946,10 @@ String SteamServer::getListenSocketAddress(uint32 socket, bool with_port){
 	if(SteamNetworkingSockets() != NULL){
 		SteamNetworkingIPAddr address;
 		if(SteamNetworkingSockets()->GetListenSocketAddress((HSteamListenSocket)socket, &address)){
-			char *this_address = new char[48];
-			address.ToString(this_address, 48, with_port);
-			socket_address = String(this_address);
-			delete[] this_address;
+			socket_address = getStringFromSteamIP(address);
 		}
 	}
 	return socket_address;
-}
-
-// Get the identity assigned to this interface.
-String SteamServer::getIdentity(){
-	String identity_string = "";
-	if(SteamNetworkingSockets() != NULL){
-		SteamNetworkingIdentity this_identity;
-		if(SteamNetworkingSockets()->GetIdentity(&this_identity)){
-			char *this_buffer = new char[128];
-			this_identity.ToString(this_buffer, 128);
-			identity_string = String(this_buffer);
-			delete[] this_buffer;
-		}
-	}
-	return identity_string;
 }
 
 // Indicate our desire to be ready participate in authenticated communications. If we are currently not ready, then steps will be taken to obtain the necessary certificates. (This includes a certificate for us, as well as any CA certificates needed to authenticate peers.)
@@ -1999,9 +2035,7 @@ uint32 SteamServer::createHostedDedicatedServerListenSocket(int port, Array opti
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
-	const SteamNetworkingConfigValue_t *these_options = convertOptionsArray(options);
-	uint32 listen_socket = SteamGameServerNetworkingSockets()->CreateHostedDedicatedServerListenSocket(port, options.size(), these_options);
-	delete[] these_options;
+	uint32 listen_socket = SteamGameServerNetworkingSockets()->CreateHostedDedicatedServerListenSocket(port, options.size(), convertOptionsArray(options));
 	return listen_socket;
 }
 
@@ -2125,9 +2159,9 @@ Dictionary SteamServer::setCertificate(const PoolByteArray& certificate){
 // Reset the identity associated with this instance. Any open connections are closed.  Any previous certificates, etc are discarded.
 // You can pass a specific identity that you want to use, or you can pass NULL, in which case the identity will be invalid until you set it using SetCertificate.
 // NOTE: This function is not actually supported on Steam!  It is included for use on other platforms where the active user can sign out and a new user can sign in.
-void SteamServer::resetIdentity(String identity_reference){
+void SteamServer::resetIdentity(uint64_t remote_steam_id){
 	if(SteamNetworkingSockets() != NULL){
-		SteamNetworkingIdentity resetting_identity = networking_identities[identity_reference.utf8().get_data()];
+		SteamNetworkingIdentity resetting_identity = getIdentityFromSteamID(remote_steam_id);
 		SteamNetworkingSockets()->ResetIdentity(&resetting_identity);
 	}
 }
@@ -2162,7 +2196,7 @@ Dictionary SteamServer::getFakeIP(int first_port){
 		// Populate the dictionary
 		fake_ip["result"] = fake_ip_result.m_eResult;
 		fake_ip["identity_type"] = fake_ip_result.m_identity.m_eType;
-		fake_ip["ip"] = fake_ip_result.m_unIP;
+		fake_ip["ip"] = getStringFromIP(fake_ip_result.m_unIP);
 		char ports[8];
 		for (size_t i = 0; i < sizeof(fake_ip_result.m_unPorts) / sizeof(fake_ip_result.m_unPorts[0]); i++){
 			ports[i] = fake_ip_result.m_unPorts[i];
@@ -2178,10 +2212,7 @@ uint32 SteamServer::createListenSocketP2PFakeIP(int fake_port, Array options){
 	if(SteamNetworkingSockets() == NULL){
 		return 0;
 	}
-	
-	const SteamNetworkingConfigValue_t *these_options = convertOptionsArray(options);
-	uint32 listen_socket = SteamNetworkingSockets()->CreateListenSocketP2PFakeIP(fake_port, options.size(), these_options);
-	delete[] these_options;
+	uint32 listen_socket = SteamNetworkingSockets()->CreateListenSocketP2PFakeIP(fake_port, options.size(), convertOptionsArray(options));
 	return listen_socket;
 }
 
@@ -2195,9 +2226,9 @@ Dictionary SteamServer::getRemoteFakeIPForConnection(uint32 connection){
 		int result = SteamNetworkingSockets()->GetRemoteFakeIPForConnection((HSteamNetConnection)connection, &fake_address);
 		// Send back the data
 		this_fake_address["result"] = result;
+		this_fake_address["ip_address"] = getStringFromSteamIP(fake_address);
 		this_fake_address["port"] = fake_address.m_port;
 		this_fake_address["ip_type"] = fake_address.GetFakeIPType();
-		ip_addresses["fake_ip_address"] = fake_address;
 		}
 
 	return this_fake_address;
@@ -2213,304 +2244,6 @@ void SteamServer::createFakeUDPPort(int fake_server_port_index){
 }
 
 
-/////////////////////////////////////////////////
-///// NETWORKING TYPES
-/////////////////////////////////////////////////
-//
-// Create a new network identity and store it for use
-bool SteamServer::addIdentity(String reference_name){
-	networking_identities[reference_name.utf8().get_data()] = SteamNetworkingIdentity();
-	if(networking_identities.count(reference_name.utf8().get_data()) > 0){
-		return true;
-	}
-	return false;
-}
-
-// Clear a network identity's data
-void SteamServer::clearIdentity(String reference_name){
-	networking_identities[reference_name.utf8().get_data()].Clear();
-}
-
-
-// Get a list of all known network identities
-Array SteamServer::getIdentities(){
-	Array these_identities;
-	// Loop through the map
-	for(auto& identity : networking_identities){
-		Dictionary this_identity;
-		this_identity["reference_name"] = identity.first;
-		this_identity["steam_id"] = (uint64_t)getIdentitySteamID64(identity.first);
-		this_identity["type"] = networking_identities[identity.first].m_eType;
-		these_identities.append(this_identity);
-	}
-	return these_identities;
-}
-
-
-// Return true if we are the invalid type.  Does not make any other validity checks (e.g. is SteamID actually valid)
-bool SteamServer::isIdentityInvalid(String reference_name){
-	return networking_identities[reference_name.utf8().get_data()].IsInvalid();
-}
-
-// Set a 32-bit Steam ID
-void SteamServer::setIdentitySteamID(String reference_name, uint32 steam_id){
-	networking_identities[reference_name.utf8().get_data()].SetSteamID(createSteamID(steam_id));
-}
-
-// Return CSteamID (!IsValid()) if identity is not a SteamID
-uint32 SteamServer::getIdentitySteamID(String reference_name){
-	CSteamID steam_id = networking_identities[reference_name.utf8().get_data()].GetSteamID();
-	return steam_id.ConvertToUint64();
-}
-
-// Takes SteamID as raw 64-bit number
-void SteamServer::setIdentitySteamID64(String reference_name, uint64_t steam_id){
-	networking_identities[reference_name.utf8().get_data()].SetSteamID64(steam_id);
-}
-
-// Returns 0 if identity is not SteamID
-uint64_t SteamServer::getIdentitySteamID64(String reference_name){
-	return networking_identities[reference_name.utf8().get_data()].GetSteamID64();
-}
-
-// Set to specified IP:port.
-bool SteamServer::setIdentityIPAddr(String reference_name, String ip_address_name){
-	if(ip_addresses.count(ip_address_name.utf8().get_data()) > 0){
-		const SteamNetworkingIPAddr this_address = ip_addresses[ip_address_name.utf8().get_data()];
-		networking_identities[reference_name.utf8().get_data()].SetIPAddr(this_address);
-		return true;
-	}
-	return false;
-}
-
-// Returns null if we are not an IP address.
-uint32 SteamServer::getIdentityIPAddr(String reference_name){
-	const SteamNetworkingIPAddr* this_address = networking_identities[reference_name.utf8().get_data()].GetIPAddr();
-	if (this_address == NULL){
-		return 0;
-	}
-	return this_address->GetIPv4();
-}
-
-// Retrieve this identity's Playstation Network ID.
-uint64_t SteamServer::getPSNID(String reference_name){
-	return networking_identities[reference_name.utf8().get_data()].GetPSNID();
-}
-
-// Retrieve this identity's Google Stadia ID.
-uint64_t SteamServer::getStadiaID(String reference_name){
-	return networking_identities[reference_name.utf8().get_data()].GetStadiaID();
-}
-
-// Retrieve this identity's XBox pair ID.
-String SteamServer::getXboxPairwiseID(String reference_name){
-	return networking_identities[reference_name.utf8().get_data()].GetXboxPairwiseID();
-}
-
-// Set to localhost. (We always use IPv6 ::1 for this, not 127.0.0.1).
-void SteamServer::setIdentityLocalHost(String reference_name){
-	networking_identities[reference_name.utf8().get_data()].SetLocalHost();
-}
-
-// Return true if this identity is localhost.
-bool SteamServer::isIdentityLocalHost(String reference_name){
-	return networking_identities[reference_name.utf8().get_data()].IsLocalHost();
-}
-
-// Returns false if invalid length.
-bool SteamServer::setGenericString(String reference_name, String this_string){
-	return networking_identities[reference_name.utf8().get_data()].SetGenericString(this_string.utf8().get_data());
-}
-
-// Returns nullptr if not generic string type
-String SteamServer::getGenericString(String reference_name){
-	return networking_identities[reference_name.utf8().get_data()].GetGenericString();
-}
-
-// Returns false if invalid size.
-bool SteamServer::setGenericBytes(String reference_name, uint8 data){
-	const void *this_data = &data;
-	return networking_identities[reference_name.utf8().get_data()].SetGenericBytes(this_data, sizeof(data));
-}
-
-// Returns null if not generic bytes type.
-uint8 SteamServer::getGenericBytes(String reference_name){
-	uint8 these_bytes = 0;
-	if(!reference_name.empty()){
-		int length = 0;
-		const uint8* generic_bytes = networking_identities[reference_name.utf8().get_data()].GetGenericBytes(length);
-		these_bytes = *generic_bytes;
-	}
-	return these_bytes;
-}
-
-// Add a new IP address struct
-bool SteamServer::addIPAddress(String reference_name){
-	ip_addresses[reference_name.utf8().get_data()] = SteamNetworkingIPAddr();
-	if(ip_addresses.count(reference_name.utf8().get_data()) > 0){
-		return true;
-	}
-	return false;
-}
-
-// Get a list of all IP address structs and their names
-Array SteamServer::getIPAddresses(){
-	Array these_addresses;
-	// Loop through the map
-	for(auto& address : ip_addresses){
-		Dictionary this_address;
-		this_address["reference_name"] = address.first;
-		this_address["localhost"] = isAddressLocalHost(address.first);
-		this_address["ip_address"] = getIPv4(address.first);
-		these_addresses.append(this_address);
-	}
-	return these_addresses;
-}
-
-// IP Address - Set everything to zero. E.g. [::]:0
-void SteamServer::clearIPAddress(String reference_name){
-	ip_addresses[reference_name.utf8().get_data()].Clear();
-}
-
-// Return true if the IP is ::0. (Doesn't check port.)
-bool SteamServer::isIPv6AllZeros(String reference_name){
-	return ip_addresses[reference_name.utf8().get_data()].IsIPv6AllZeros();
-}
-
-// Set IPv6 address. IP is interpreted as bytes, so there are no endian issues. (Same as inaddr_in6.) The IP can be a mapped IPv4 address.
-void SteamServer::setIPv6(String reference_name, uint8 ipv6, uint16 port){
-	const uint8 *this_ipv6 = &ipv6;
-	ip_addresses[reference_name.utf8().get_data()].SetIPv6(this_ipv6, port);
-}
-
-// Sets to IPv4 mapped address. IP and port are in host byte order.
-void SteamServer::setIPv4(String reference_name, uint32 ip, uint16 port){
-	ip_addresses[reference_name.utf8().get_data()].SetIPv4(ip, port);
-}
-
-// Return true if IP is mapped IPv4.
-bool SteamServer::isIPv4(String reference_name){
-	return ip_addresses[reference_name.utf8().get_data()].IsIPv4();
-}
-
-// Returns IP in host byte order (e.g. aa.bb.cc.dd as 0xaabbccdd). Returns 0 if IP is not mapped IPv4.
-uint32 SteamServer::getIPv4(String reference_name){
-	return ip_addresses[reference_name.utf8().get_data()].GetIPv4();
-}
-
-// Set to the IPv6 localhost address ::1, and the specified port.
-void SteamServer::setIPv6LocalHost(String reference_name, uint16 port){
-	ip_addresses[reference_name.utf8().get_data()].SetIPv6LocalHost(port);
-}
-
-// Set the Playstation Network ID for this identity.
-void SteamServer::setPSNID(String reference_name, uint64_t psn_id){
-	networking_identities[reference_name.utf8().get_data()].SetPSNID(psn_id);
-}
-
-// Set the Google Stadia ID for this identity.
-void SteamServer::setStadiaID(String reference_name, uint64_t stadia_id){
-	networking_identities[reference_name.utf8().get_data()].SetStadiaID(stadia_id);
-}
-
-// Set the Xbox Pairwise ID for this identity.
-bool SteamServer::setXboxPairwiseID(String reference_name, String xbox_id){
-	return networking_identities[reference_name.utf8().get_data()].SetXboxPairwiseID(xbox_id.utf8().get_data());
-}
-
-// Return true if this identity is localhost. (Either IPv6 ::1, or IPv4 127.0.0.1).
-bool SteamServer::isAddressLocalHost(String reference_name){
-	return ip_addresses[reference_name.utf8().get_data()].IsLocalHost();
-}
-
-// Parse back a string that was generated using ToString. If we don't understand the string, but it looks "reasonable" (it matches the pattern type:<type-data> and doesn't have any funky characters, etc), then we will return true, and the type is set to k_ESteamNetworkingIdentityType_UnknownType.
-// false will only be returned if the string looks invalid.
-bool SteamServer::parseIdentityString(String reference_name, String string_to_parse){
-	if(!reference_name.empty() && !string_to_parse.empty()){
-		if(networking_identities[reference_name.utf8().get_data()].ParseString(string_to_parse.utf8().get_data())){
-			return true;
-		}
-		return false;
-	}
-	return false;
-}
-
-// Parse an IP address and optional port.  If a port is not present, it is set to 0. (This means that you cannot tell if a zero port was explicitly specified.).
-bool SteamServer::parseIPAddressString(String reference_name, String string_to_parse){
-	if(!reference_name.empty() && !string_to_parse.empty()){
-		if(ip_addresses[reference_name.utf8().get_data()].ParseString(string_to_parse.utf8().get_data())){
-			return true;
-		}
-		return false;
-	}
-	return false;
-}
-
-// Print to a string, with or without the port. Mapped IPv4 addresses are printed as dotted decimal (12.34.56.78), otherwise this will print the canonical form according to RFC5952.
-// If you include the port, IPv6 will be surrounded by brackets, e.g. [::1:2]:80. Your buffer should be at least k_cchMaxString bytes to avoid truncation.
-String SteamServer::toIPAddressString(String reference_name, bool with_port){
-	String ip_address_string = "";
-	char *this_buffer = new char[128];
-	ip_addresses[reference_name.utf8().get_data()].ToString(this_buffer, 128, with_port);
-	ip_address_string = String(this_buffer);
-	delete[] this_buffer;
-	return ip_address_string;
-}
-
-// Print to a human-readable string.  This is suitable for debug messages or any other time you need to encode the identity as a string.
-// It has a URL-like format (type:<type-data>). Your buffer should be at least k_cchMaxString bytes big to avoid truncation.
-String SteamServer::toIdentityString(String reference_name){
-	String identity_string = "";
-	char *this_buffer = new char[128];
-	networking_identities[reference_name.utf8().get_data()].ToString(this_buffer, 128);
-	identity_string = String(this_buffer);
-	delete[] this_buffer;
-	return identity_string;
-}
-
-// Helper function to turn an array of options into an array of SteamNetworkingConfigValue_t structs
-const SteamNetworkingConfigValue_t* SteamServer::convertOptionsArray(Array options){
-	// Get the number of option arrays in the array.
-	int options_size = options.size();
-	// Create the array for options.
-	SteamNetworkingConfigValue_t *option_array = new SteamNetworkingConfigValue_t[options_size];
-	// If there are options
-	if(options_size > 0){
-		// Populate the options
-		for(int i = 0; i < options_size; i++){
-			SteamNetworkingConfigValue_t this_option;
-			Array sent_option = options[i];
-			// Get the configuration value.
-			// This is a convoluted way of doing it but can't seem to cast the value as an enum so here we are.
-			ESteamNetworkingConfigValue this_value = ESteamNetworkingConfigValue((int)sent_option[0]);
-			if((int)sent_option[1] == 1){
-				this_option.SetInt32(this_value, sent_option[2]);
-			}
-			else if((int)sent_option[1] == 2){
-				this_option.SetInt64(this_value, sent_option[2]);
-			}
-			else if((int)sent_option[1] == 3){
-				this_option.SetFloat(this_value, sent_option[2]);
-			}
-			else if((int)sent_option[1] == 4){
-				char *this_string = { 0 };
-				String passed_string = sent_option[2];
-				strcpy(this_string, passed_string.utf8().get_data());
-				this_option.SetString(this_value, this_string);
-			}
-			else{
-				Object *this_pointer;
-				this_pointer = sent_option[2];
-				this_option.SetPtr(this_value, this_pointer);
-			}
-			option_array[i] = this_option;
-		}
-	}
-	return option_array;
-}
-
-
-/////////////////////////////////////////////////
 ///// NETWORKING UTILS
 /////////////////////////////////////////////////
 //
@@ -2759,7 +2492,6 @@ uint64_t SteamServer::getLocalTimestamp(){
 }
 
 
-/////////////////////////////////////////////////
 ///// UGC
 /////////////////////////////////////////////////
 //
@@ -2815,27 +2547,7 @@ bool SteamServer::addItemPreviewFile(uint64_t query_handle, String preview_file,
 	if(SteamUGC() == NULL){
 		return false;
 	}
-	EItemPreviewType previewType;
-	UGCQueryHandle_t handle = (uint64_t)query_handle;
-	if(type == 0){
-		previewType = k_EItemPreviewType_Image;
-	}
-	else if(type == 1){
-		previewType = k_EItemPreviewType_YouTubeVideo;
-	}
-	else if(type == 2){
-		previewType = k_EItemPreviewType_Sketchfab;
-	}
-	else if(type == 3){
-		previewType = k_EItemPreviewType_EnvironmentMap_HorizontalCross;
-	}
-	else if(type == 4){
-		previewType = k_EItemPreviewType_EnvironmentMap_LatLong;
-	}
-	else{
-		previewType = k_EItemPreviewType_ReservedMax;
-	}
-	return SteamUGC()->AddItemPreviewFile(handle, preview_file.utf8().get_data(), previewType);
+	return SteamUGC()->AddItemPreviewFile((UGCQueryHandle_t)query_handle, preview_file.utf8().get_data(), (EItemPreviewType)type);
 }
 
 // Adds an additional video preview from YouTube for the item.
@@ -2919,107 +2631,9 @@ uint64_t SteamServer::createQueryAllUGCRequest(int query_type, int matching_type
 	if(SteamUGC() == NULL){
 		return 0;
 	}
-	EUGCQuery query;
-	if(query_type == 0){
-		query = k_EUGCQuery_RankedByVote;
-	}
-	else if(query_type == 1){
-		query = k_EUGCQuery_RankedByPublicationDate;
-	}
-	else if(query_type == 2){
-		query = k_EUGCQuery_AcceptedForGameRankedByAcceptanceDate;
-	}
-	else if(query_type == 3){
-		query = k_EUGCQuery_RankedByTrend;
-	}
-	else if(query_type == 4){
-		query = k_EUGCQuery_FavoritedByFriendsRankedByPublicationDate;
-	}
-	else if(query_type == 5){
-		query = k_EUGCQuery_CreatedByFriendsRankedByPublicationDate;
-	}
-	else if(query_type == 6){
-		query = k_EUGCQuery_RankedByNumTimesReported;
-	}
-	else if(query_type == 7){
-		query = k_EUGCQuery_CreatedByFollowedUsersRankedByPublicationDate;
-	}
-	else if(query_type == 8){
-		query = k_EUGCQuery_NotYetRated;
-	}
-	else if(query_type == 9){
-		query = k_EUGCQuery_RankedByTotalVotesAsc;
-	}
-	else if(query_type == 10){
-		query = k_EUGCQuery_RankedByVotesUp;
-	}
-	else if(query_type == 11){
-		query = k_EUGCQuery_RankedByTextSearch;
-	}
-	else if(query_type == 12){
-		query = k_EUGCQuery_RankedByTotalUniqueSubscriptions;
-	}
-	else if(query_type == 13){
-		query = k_EUGCQuery_RankedByPlaytimeTrend;
-	}
-	else if(query_type == 14){
-		query = k_EUGCQuery_RankedByTotalPlaytime;
-	}
-	else if(query_type == 15){
-		query = k_EUGCQuery_RankedByAveragePlaytimeTrend;
-	}
-	else if(query_type == 16){
-		query = k_EUGCQuery_RankedByLifetimeAveragePlaytime;
-	}
-	else if(query_type == 17){
-		query = k_EUGCQuery_RankedByPlaytimeSessionsTrend;
-	}
-	else{
-		query = k_EUGCQuery_RankedByLifetimePlaytimeSessions;
-	}
-	EUGCMatchingUGCType match;
-	if(matching_type == 0){
-		match = k_EUGCMatchingUGCType_All;
-	}
-	else if(matching_type == 1){
-		match = k_EUGCMatchingUGCType_Items_Mtx;
-	}
-	else if(matching_type == 2){
-		match = k_EUGCMatchingUGCType_Items_ReadyToUse;
-	}
-	else if(matching_type == 3){
-		match = k_EUGCMatchingUGCType_Collections;
-	}
-	else if(matching_type == 4){
-		match = k_EUGCMatchingUGCType_Artwork;
-	}
-	else if(matching_type == 5){
-		match = k_EUGCMatchingUGCType_Videos;
-	}
-	else if(matching_type == 6){
-		match = k_EUGCMatchingUGCType_Screenshots;
-	}
-	else if(matching_type == 7){
-		match = k_EUGCMatchingUGCType_AllGuides;
-	}
-	else if(matching_type == 8){
-		match = k_EUGCMatchingUGCType_WebGuides;
-	}
-	else if(matching_type == 9){
-		match = k_EUGCMatchingUGCType_IntegratedGuides;
-	}
-	else if(matching_type == 10){
-		match = k_EUGCMatchingUGCType_UsableInGame;
-	}
-	else if(matching_type == 11){
-		match = k_EUGCMatchingUGCType_ControllerBindings;
-	}
-	else{
-		match = k_EUGCMatchingUGCType_GameManagedItems;
-	}
 	AppId_t creator = (uint32_t)creator_id;
 	AppId_t consumer = (uint32_t)consumer_id;
-	UGCQueryHandle_t handle = SteamUGC()->CreateQueryAllUGCRequest(query, match, creator, consumer, page);
+	UGCQueryHandle_t handle = SteamUGC()->CreateQueryAllUGCRequest((EUGCQuery)query_type, (EUGCMatchingUGCType)matching_type, creator, consumer, page);
 	return (uint64_t)handle;
 }
 
@@ -3049,99 +2663,9 @@ uint64_t SteamServer::createQueryUserUGCRequest(uint64_t steam_id, int list_type
 	// Get tue universe ID from the Steam ID
 	CSteamID user_id = (uint64)steam_id;
 	AccountID_t account = (AccountID_t)user_id.ConvertToUint64();
-	EUserUGCList list;
-	if(list_type == 0){
-		list = k_EUserUGCList_Published;
-	}
-	else if(list_type == 1){
-		list = k_EUserUGCList_VotedOn;
-	}
-	else if(list_type == 2){
-		list = k_EUserUGCList_VotedUp;
-	}
-	else if(list_type == 3){
-		list = k_EUserUGCList_VotedDown;
-	}
-	else if(list_type == 4){
-		list = k_EUserUGCList_WillVoteLater;
-	}
-	else if(list_type == 5){
-		list = k_EUserUGCList_Favorited;
-	}
-	else if(list_type == 6){
-		list = k_EUserUGCList_Subscribed;
-	}
-	else if(list_type == 7){
-		list = k_EUserUGCList_UsedOrPlayed;
-	}
-	else{
-		list = k_EUserUGCList_Followed;
-	}
-	EUGCMatchingUGCType match;
-	if(matching_ugc_type == 0){
-		match = k_EUGCMatchingUGCType_All;
-	}
-	else if(matching_ugc_type == 1){
-		match = k_EUGCMatchingUGCType_Items_Mtx;
-	}
-	else if(matching_ugc_type == 2){
-		match = k_EUGCMatchingUGCType_Items_ReadyToUse;
-	}
-	else if(matching_ugc_type == 3){
-		match = k_EUGCMatchingUGCType_Collections;
-	}
-	else if(matching_ugc_type == 4){
-		match = k_EUGCMatchingUGCType_Artwork;
-	}
-	else if(matching_ugc_type == 5){
-		match = k_EUGCMatchingUGCType_Videos;
-	}
-	else if(matching_ugc_type == 6){
-		match = k_EUGCMatchingUGCType_Screenshots;
-	}
-	else if(matching_ugc_type == 7){
-		match = k_EUGCMatchingUGCType_AllGuides;
-	}
-	else if(matching_ugc_type == 8){
-		match = k_EUGCMatchingUGCType_WebGuides;
-	}
-	else if(matching_ugc_type == 9){
-		match = k_EUGCMatchingUGCType_IntegratedGuides;
-	}
-	else if(matching_ugc_type == 10){
-		match = k_EUGCMatchingUGCType_UsableInGame;
-	}
-	else if(matching_ugc_type == 11){
-		match = k_EUGCMatchingUGCType_ControllerBindings;
-	}
-	else{
-		match = k_EUGCMatchingUGCType_GameManagedItems;
-	}
-	EUserUGCListSortOrder sort;
-	if(sort_order == 0){
-		sort = k_EUserUGCListSortOrder_CreationOrderDesc;
-	}
-	else if(sort_order == 1){
-		sort = k_EUserUGCListSortOrder_CreationOrderAsc;
-	}
-	else if(sort_order == 2){
-		sort = k_EUserUGCListSortOrder_TitleAsc;
-	}
-	else if(sort_order == 3){
-		sort = k_EUserUGCListSortOrder_LastUpdatedDesc;
-	}
-	else if(sort_order == 4){
-		sort = k_EUserUGCListSortOrder_SubscriptionDateDesc;
-	}
-	else if(sort_order == 5){
-		sort = k_EUserUGCListSortOrder_VoteScoreDesc;
-	}
-	else{
-		sort = k_EUserUGCListSortOrder_ForModeration;
-	}
 	AppId_t creator = (int)creator_id;
 	AppId_t consumer = (int)consumer_id;
-	UGCQueryHandle_t handle = SteamUGC()->CreateQueryUserUGCRequest(account, list, match, sort, creator, consumer, page);
+	UGCQueryHandle_t handle = SteamUGC()->CreateQueryUserUGCRequest(account, (EUserUGCList)list_type, (EUGCMatchingUGCType)matching_ugc_type, (EUserUGCListSortOrder)sort_order, creator, consumer, page);
 	return (uint64_t)handle;
 }
 
@@ -3385,102 +2909,62 @@ String SteamServer::getQueryUGCPreviewURL(uint64_t query_handle, uint32 index){
 }
 
 // Retrieve the details of an individual workshop item after receiving a querying UGC call result.
-Dictionary SteamServer::getQueryUGCResult(uint64_t query_handle, uint32 index){
-	Dictionary ugcResult;
-	if(SteamUGC() == NULL){
-		return ugcResult;
+Dictionary SteamServer::getQueryUGCResult(uint64_t query_handle, uint32 index) {
+	Dictionary ugc_result;
+	if (SteamUGC() == NULL) {
+		return ugc_result;
 	}
 	UGCQueryHandle_t handle = (uint64_t)query_handle;
-	SteamUGCDetails_t pDetails;
-	bool success = SteamUGC()->GetQueryUGCResult(handle, index, &pDetails);
-	if(success){
-		ugcResult["result"] = (uint64_t)pDetails.m_eResult;
-		ugcResult["file_id"] = (uint64_t)pDetails.m_nPublishedFileId;
-		ugcResult["file_type"] = (uint64_t)pDetails.m_eFileType;
-		ugcResult["creator_app_id"] = (uint32_t)pDetails.m_nCreatorAppID;
-		ugcResult["consumer_app_id"] = (uint32_t)pDetails.m_nConsumerAppID;
-		ugcResult["title"] = String(pDetails.m_rgchTitle);
-		ugcResult["description"] = String(pDetails.m_rgchDescription);
-		ugcResult["steam_id_owner"] = (uint64_t)pDetails.m_ulSteamIDOwner;
-		ugcResult["time_created"] = pDetails.m_rtimeCreated;
-		ugcResult["time_updated"] = pDetails.m_rtimeUpdated;
-		ugcResult["time_added_to_user_list"] = pDetails.m_rtimeAddedToUserList;
-		ugcResult["visibility"] = (uint64_t)pDetails.m_eVisibility;
-		ugcResult["banned"] = pDetails.m_bBanned;
-		ugcResult["accepted_for_use"] = pDetails.m_bAcceptedForUse;
-		ugcResult["tags_truncated"] = pDetails.m_bTagsTruncated;
-		ugcResult["tags"] = pDetails.m_rgchTags;
-		ugcResult["handle_file"] = (uint64_t)pDetails.m_hFile;
-		ugcResult["handle_preview_file"] = (uint64_t)pDetails.m_hPreviewFile;
-		ugcResult["file_name"] = pDetails.m_pchFileName;
-		ugcResult["file_size"] = pDetails.m_nFileSize;
-		ugcResult["preview_file_size"] = pDetails.m_nPreviewFileSize;
-		ugcResult["url"] = pDetails.m_rgchURL;
-		ugcResult["votes_up"] = pDetails.m_unVotesUp;
-		ugcResult["votes_down"] = pDetails.m_unVotesDown;
-		ugcResult["score"] = pDetails.m_flScore;
-		ugcResult["num_children"] = pDetails.m_unNumChildren;
+	SteamUGCDetails_t query_details;
+	bool success = SteamUGC()->GetQueryUGCResult(handle, index, &query_details);
+	if (success) {
+		ugc_result["result"] = (uint64_t)query_details.m_eResult;
+		ugc_result["file_id"] = (uint64_t)query_details.m_nPublishedFileId;
+		ugc_result["file_type"] = (uint64_t)query_details.m_eFileType;
+		ugc_result["creator_app_id"] = (uint32_t)query_details.m_nCreatorAppID;
+		ugc_result["consumer_app_id"] = (uint32_t)query_details.m_nConsumerAppID;
+		ugc_result["title"] = String(query_details.m_rgchTitle);
+		ugc_result["description"] = String(query_details.m_rgchDescription);
+		ugc_result["steam_id_owner"] = (uint64_t)query_details.m_ulSteamIDOwner;
+		ugc_result["time_created"] = query_details.m_rtimeCreated;
+		ugc_result["time_updated"] = query_details.m_rtimeUpdated;
+		ugc_result["time_added_to_user_list"] = query_details.m_rtimeAddedToUserList;
+		ugc_result["visibility"] = (uint64_t)query_details.m_eVisibility;
+		ugc_result["banned"] = query_details.m_bBanned;
+		ugc_result["accepted_for_use"] = query_details.m_bAcceptedForUse;
+		ugc_result["tags_truncated"] = query_details.m_bTagsTruncated;
+		ugc_result["tags"] = query_details.m_rgchTags;
+		ugc_result["handle_file"] = (uint64_t)query_details.m_hFile;
+		ugc_result["handle_preview_file"] = (uint64_t)query_details.m_hPreviewFile;
+		ugc_result["file_name"] = query_details.m_pchFileName;
+		ugc_result["file_size"] = query_details.m_nFileSize;
+		ugc_result["preview_file_size"] = query_details.m_nPreviewFileSize;
+		ugc_result["url"] = query_details.m_rgchURL;
+		ugc_result["votes_up"] = query_details.m_unVotesUp;
+		ugc_result["votes_down"] = query_details.m_unVotesDown;
+		ugc_result["score"] = query_details.m_flScore;
+		ugc_result["num_children"] = query_details.m_unNumChildren;
 	}
-	return ugcResult;
+	return ugc_result;
 }
 
 // Retrieve various statistics of an individual workshop item after receiving a querying UGC call result.
 Dictionary SteamServer::getQueryUGCStatistic(uint64_t query_handle, uint32 index, int stat_type){
-	Dictionary ugcStat;
-	if(SteamUGC() == NULL){
-		return ugcStat;
+	Dictionary ugc_stat;
+	if (SteamUGC() == NULL) {
+		return ugc_stat;
 	}
 	UGCQueryHandle_t handle = (uint64_t)query_handle;
-	EItemStatistic type;
-		if(stat_type == 0){
-		type = k_EItemStatistic_NumSubscriptions;
-	}
-	else if(stat_type == 1){
-		type = k_EItemStatistic_NumFavorites;
-	}
-	else if(stat_type == 2){
-		type = k_EItemStatistic_NumFollowers;
-	}
-	else if(stat_type == 3){
-		type = k_EItemStatistic_NumUniqueSubscriptions;
-	}
-	else if(stat_type == 4){
-		type = k_EItemStatistic_NumUniqueFavorites;
-	}
-	else if(stat_type == 5){
-		type = k_EItemStatistic_NumUniqueFollowers;
-	}
-	else if(stat_type == 6){
-		type = k_EItemStatistic_NumUniqueWebsiteViews;
-	}
-	else if(stat_type == 7){
-		type = k_EItemStatistic_ReportScore;
-	}
-	else if(stat_type == 8){
-		type = k_EItemStatistic_NumSecondsPlayed;
-	}
-	else if(stat_type == 9){
-		type = k_EItemStatistic_NumPlaytimeSessions;
-	}
-	else if(stat_type == 10){
-		type = k_EItemStatistic_NumComments;
-	}
-	else if(stat_type == 11){
-		type = k_EItemStatistic_NumSecondsPlayedDuringTimePeriod;
-	}
-	else{
-		type = k_EItemStatistic_NumPlaytimeSessionsDuringTimePeriod;
-	}
 	uint64 value = 0;
-	bool success = SteamUGC()->GetQueryUGCStatistic(handle, index, type, &value);
-	if(success){
-		ugcStat["success"] = success;
-		ugcStat["handle"] = (uint64_t)handle;
-		ugcStat["index"] = index;
-		ugcStat["type"] = type;
-		ugcStat["value"] = (uint64_t)value;
-	}	
-	return ugcStat;
+	bool success = SteamUGC()->GetQueryUGCStatistic(handle, index, (EItemStatistic)stat_type, &value);
+	if (success) {
+		ugc_stat["success"] = success;
+		ugc_stat["handle"] = (uint64_t)handle;
+		ugc_stat["index"] = index;
+		ugc_stat["type"] = stat_type;
+		ugc_stat["value"] = (uint64_t)value;
+	}
+	return ugc_stat;
 }
 
 // Retrieve the "nth" tag associated with an individual workshop item after receiving a querying UGC call result.
@@ -4014,41 +3498,41 @@ bool SteamServer::setTimeUpdatedDateRange(uint64_t update_handle, uint32 start, 
 // GAME SERVER CALLBACKS ////////////////////////
 //
 // Called when a connection attempt has failed. This will occur periodically if the Steam client is not connected, and has failed when retrying to establish a connection.
-void SteamServer::server_connect_failure(SteamServerConnectFailure_t* serverData){
-	int result = serverData->m_eResult;
-	bool retrying = serverData->m_bStillRetrying;
+void SteamServer::server_connect_failure(SteamServerConnectFailure_t* server_data){
+	int result = server_data->m_eResult;
+	bool retrying = server_data->m_bStillRetrying;
 	emit_signal("server_connect_failure", result, retrying);
 }
 
-// Server has connected to the Steam back-end; serverData has no fields.
-void SteamServer::server_connected(SteamServersConnected_t* serverData){
+// Server has connected to the Steam back-end; server_data has no fields.
+void SteamServer::server_connected(SteamServersConnected_t* server_data){
 	emit_signal("server_connected");
 }
 
 // Called if the client has lost connection to the Steam servers. Real-time services will be disabled until a matching SteamServersConnected_t has been posted.
-void SteamServer::server_disconnected(SteamServersDisconnected_t* serverData){
-	int result = serverData->m_eResult;
+void SteamServer::server_disconnected(SteamServersDisconnected_t* server_data){
+	int result = server_data->m_eResult;
 	emit_signal("server_disconnected", result);
 }
 
 // Client has been approved to connect to this game server.
-void SteamServer::client_approved(GSClientApprove_t* clientData){
-	uint64_t steam_id = clientData->m_SteamID.ConvertToUint64();
-	uint64_t owner_id = clientData->m_OwnerSteamID.ConvertToUint64();
+void SteamServer::client_approved(GSClientApprove_t* client_data){
+	uint64_t steam_id = client_data->m_SteamID.ConvertToUint64();
+	uint64_t owner_id = client_data->m_OwnerSteamID.ConvertToUint64();
 	emit_signal("client_approved", steam_id, owner_id);
 }
 
 // Client has been denied to connection to this game server.
-void SteamServer::client_denied(GSClientDeny_t* clientData){
-	uint64_t steam_id = clientData->m_SteamID.ConvertToUint64();
-	int reason = clientData->m_eDenyReason;
+void SteamServer::client_denied(GSClientDeny_t* client_data){
+	uint64_t steam_id = client_data->m_SteamID.ConvertToUint64();
+	int reason = client_data->m_eDenyReason;
 	emit_signal("client_denied", steam_id, reason);
 }
 
 // Request the game server should kick the user.
-void SteamServer::client_kick(GSClientKick_t* clientData){
-	uint64_t steam_id = clientData->m_SteamID.ConvertToUint64();
-	int reason = clientData->m_eDenyReason;
+void SteamServer::client_kick(GSClientKick_t* client_data){
+	uint64_t steam_id = client_data->m_SteamID.ConvertToUint64();
+	int reason = client_data->m_eDenyReason;
 	emit_signal("client_kick", steam_id, reason);
 }
 
@@ -4060,11 +3544,11 @@ void SteamServer::policy_response(GSPolicyResponse_t* policyData){
 }
 
 // Sent as a reply to RequestUserGroupStatus().
-void SteamServer::client_group_status(GSClientGroupStatus_t* clientData){
-	uint64_t steam_id = clientData->m_SteamIDUser.ConvertToUint64();
-	uint64_t group_id = clientData->m_SteamIDGroup.ConvertToUint64();
-	bool member = clientData->m_bMember;
-	bool officer = clientData->m_bOfficer;
+void SteamServer::client_group_status(GSClientGroupStatus_t* client_data){
+	uint64_t steam_id = client_data->m_SteamIDUser.ConvertToUint64();
+	uint64_t group_id = client_data->m_SteamIDGroup.ConvertToUint64();
+	bool member = client_data->m_bMember;
+	bool officer = client_data->m_bOfficer;
 	emit_signal("client_group_status", steam_id, group_id, member, officer);
 }
 
@@ -4075,12 +3559,12 @@ void SteamServer::associate_clan(AssociateWithClanResult_t* clanData){
 }
 
 // Sent as a reply to ComputeNewPlayerCompatibility().
-void SteamServer::player_compat(ComputeNewPlayerCompatibilityResult_t* playerData){
-	int result = playerData->m_eResult;
-	int players_dont_like_candidate = playerData->m_cPlayersThatDontLikeCandidate;
-	int players_candidate_doesnt_like = playerData->m_cPlayersThatCandidateDoesntLike;
-	int clan_players_dont_like_candidate = playerData->m_cClanPlayersThatDontLikeCandidate;
-	uint64_t steam_id = playerData->m_SteamIDCandidate.ConvertToUint64();
+void SteamServer::player_compat(ComputeNewPlayerCompatibilityResult_t* player_data){
+	int result = player_data->m_eResult;
+	int players_dont_like_candidate = player_data->m_cPlayersThatDontLikeCandidate;
+	int players_candidate_doesnt_like = player_data->m_cPlayersThatCandidateDoesntLike;
+	int clan_players_dont_like_candidate = player_data->m_cClanPlayersThatDontLikeCandidate;
+	uint64_t steam_id = player_data->m_SteamIDCandidate.ConvertToUint64();
 	emit_signal("player_compat", result, players_dont_like_candidate, players_candidate_doesnt_like, clan_players_dont_like_candidate, steam_id);
 }
 
@@ -4180,25 +3664,22 @@ void SteamServer::inventory_result_ready(SteamInventoryResultReady_t *call_data)
 //
 // Called when packets can't get through to the specified user. All queued packets unsent at this point will be dropped, further attempts to send will retry making the connection (but will be dropped if we fail again).
 void SteamServer::p2p_session_connect_fail(P2PSessionConnectFail_t* call_data) {
-	uint64_t steam_id_remote = call_data->m_steamIDRemote.ConvertToUint64();
+	uint64_t remote_steam_id = call_data->m_steamIDRemote.ConvertToUint64();
 	uint8_t session_error = call_data->m_eP2PSessionError;
-	emit_signal("p2p_session_connect_fail", steam_id_remote, session_error);
+	emit_signal("p2p_session_connect_fail", remote_steam_id, session_error);
 }
 
 // A user wants to communicate with us over the P2P channel via the sendP2PPacket. In response, a call to acceptP2PSessionWithUser needs to be made, if you want to open the network channel with them.
 void SteamServer::p2p_session_request(P2PSessionRequest_t* call_data){
-	uint64_t steam_id_remote = call_data->m_steamIDRemote.ConvertToUint64();
-	emit_signal("p2p_session_request", steam_id_remote);
+	uint64_t remote_steam_id = call_data->m_steamIDRemote.ConvertToUint64();
+	emit_signal("p2p_session_request", remote_steam_id);
 }
 
 // NETWORKING MESSAGES CALLBACKS ////////////////
 //
 // Posted when a remote host is sending us a message, and we do not already have a session with them.
 void SteamServer::network_messages_session_request(SteamNetworkingMessagesSessionRequest_t* call_data){
-	SteamNetworkingIdentity remote = call_data->m_identityRemote;
-	char identity[STEAM_BUFFER_SIZE];
-	remote.ToString(identity, STEAM_BUFFER_SIZE);
-	emit_signal("network_messages_session_request", identity);
+	emit_signal("network_messages_session_request", getSteamIDFromIdentity(call_data->m_identityRemote));
 }
 
 // Posted when we fail to establish a connection, or we detect that communications have been disrupted it an unusual way.
@@ -4219,14 +3700,10 @@ void SteamServer::network_connection_status_changed(SteamNetConnectionStatusChan
 	SteamNetConnectionInfo_t connection_info = call_data->m_info;
 	// Move connection info into a dictionary
 	Dictionary connection;
-	char identity[STEAM_BUFFER_SIZE];
-	connection_info.m_identityRemote.ToString(identity, STEAM_BUFFER_SIZE);
-	connection["identity"] = identity;
+	connection["identity"] = getSteamIDFromIdentity(connection_info.m_identityRemote);
 	connection["user_data"] = (uint64_t)connection_info.m_nUserData;
 	connection["listen_socket"] = connection_info.m_hListenSocket;
-	char ip_address[STEAM_BUFFER_SIZE];
-	connection_info.m_addrRemote.ToString(ip_address, STEAM_BUFFER_SIZE, true);
-	connection["remote_address"] = ip_address;
+	connection["remote_address"] = getStringFromSteamIP(connection_info.m_addrRemote);
 	connection["remote_pop"] = connection_info.m_idPOPRemote;
 	connection["pop_relay"] = connection_info.m_idPOPRelay;
 	connection["connection_state"] = connection_info.m_eState;
@@ -4245,7 +3722,7 @@ void SteamServer::network_authentication_status(SteamNetAuthenticationStatus_t* 
 	int available = call_data->m_eAvail;
 	// Non-localized English language status. For diagnostic / debugging purposes only.
 	char *debug_message = new char[256];
-	sprintf(debug_message, "%s", call_data->m_debugMsg);
+	snprintf(debug_message, 256, "%s", call_data->m_debugMsg);
 	// Send the data back via signal
 	emit_signal("network_authentication_status", available, debug_message);
 	delete[] debug_message;
@@ -4255,24 +3732,14 @@ void SteamServer::network_authentication_status(SteamNetAuthenticationStatus_t* 
 // This callback is posted when ISteamNetworkingSoockets::BeginAsyncRequestFakeIP completes.
 void SteamServer::fake_ip_result(SteamNetworkingFakeIPResult_t* call_data){
 	int result = call_data->m_eResult;
-	// Pass this new networking identity to the map
-	networking_identities["fake_ip_identity"] = call_data->m_identity;
-	uint32 ip = call_data->m_unIP;
-	// Convert the IP address back to a string
-	const int NBYTES = 4;
-	uint8 octet[NBYTES];
-	char fake_ip[16];
-	for(int i = 0; i < NBYTES; i++){
-		octet[i] = ip >> (i * 8);
-	}
-	sprintf(fake_ip, "%d.%d.%d.%d", octet[0], octet[1], octet[2], octet[3]);
+	uint32 fake_ip = call_data->m_unIP;
 	// Get the ports as an array
 	Array port_list;
 	uint16* ports = call_data->m_unPorts;
 	for(uint16 i = 0; i < sizeof(ports); i++){
 		port_list.append(ports[i]);
 	}
-	emit_signal("fake_ip_result", result, "fake_ip_identity", fake_ip, port_list);
+	emit_signal("fake_ip_result", result, getSteamIDFromIdentity(call_data->m_identity), getStringFromIP(fake_ip), port_list);
 }
 
 // NETWORKING UTILS CALLBACKS ///////////////////
@@ -4322,8 +3789,7 @@ void SteamServer::user_subscribed_items_list_changed(UserSubscribedItemsListChan
 }
 
 
-/////////////////////////////////////////////////
-///// SIGNALS / CALL RESULTS ////////////////////
+///// SIGNALS / CALL RESULTS
 /////////////////////////////////////////////////
 //
 // STEAMWORKS ERROR SIGNAL //////////////////////
@@ -4701,18 +4167,25 @@ void SteamServer::workshop_eula_status(WorkshopEULAStatus_t* call_data, bool io_
 }
 
 
-/////////////////////////////////////////////////
-///// BIND METHODS //////////////////////////////
+///// BIND METHODS
 /////////////////////////////////////////////////
 //
 void SteamServer::_register_methods(){
-	/////////////////////////////////////////////
-	// FUNCTION BINDS ///////////////////////////
+
+	// FUNCTION BINDS
 	/////////////////////////////////////////////
 	//
 	// MAIN BIND METHODS ////////////////////////
-	register_method("isServerSecure", &SteamServer::isServerSecure);
 	register_method("getServerSteamID", &SteamServer::getServerSteamID);
+	register_method("getSteamID32", &SteamServer::getSteamID32);
+	register_method("isAnonAccount", &SteamServer::isAnonAccount);
+	register_method("isAnonUserAccount", &SteamServer::isAnonUserAccount);
+	register_method("isChatAccount", &SteamServer::isChatAccount);
+	register_method("isClanAccount", &SteamServer::isClanAccount);
+	register_method("isConsoleUserAccount", &SteamServer::isConsoleUserAccount);
+	register_method("isIndividualAccount", &SteamServer::isIndividualAccount);
+	register_method("isLobby", &SteamServer::isLobby);
+	register_method("isServerSecure", &SteamServer::isServerSecure);
 	register_method("run_callbacks", &SteamServer::run_callbacks);
 	register_method("serverInit", &SteamServer::serverInit);
 	register_method("serverInitEx", &SteamServer::serverInitEx);
@@ -4879,7 +4352,6 @@ void SteamServer::_register_methods(){
 	register_method("getHostedDedicatedServerPOPId", &SteamServer::getHostedDedicatedServerPOPId);
 	register_method("getHostedDedicatedServerPort", &SteamServer::getHostedDedicatedServerPort);
 	register_method("getListenSocketAddress", &SteamServer::getListenSocketAddress);
-	register_method("getIdentity", &SteamServer::getIdentity);
 	register_method("getRemoteFakeIPForConnection", &SteamServer::getRemoteFakeIPForConnection);
 	register_method("initAuthentication", &SteamServer::initAuthentication);
 	register_method("receiveMessagesOnConnection", &SteamServer::receiveMessagesOnConnection);	
@@ -4892,45 +4364,7 @@ void SteamServer::_register_methods(){
 	register_method("setCertificate", &SteamServer::setCertificate);
 	register_method("setConnectionPollGroup", &SteamServer::setConnectionPollGroup);
 	register_method("setConnectionName", &SteamServer::setConnectionName);
-	
-	// NETWORKING TYPES BIND METHODS ////////////
-	register_method("addIdentity", &SteamServer::addIdentity);
-	register_method("addIPAddress", &SteamServer::addIPAddress);
-	register_method("clearIdentity", &SteamServer::clearIdentity);
-	register_method("clearIPAddress", &SteamServer::clearIPAddress);
-	register_method("getGenericBytes", &SteamServer::getGenericBytes);
-	register_method("getGenericString", &SteamServer::getGenericString);
-	register_method("getIdentities", &SteamServer::getIdentities);
-	register_method("getIdentityIPAddr", &SteamServer::getIdentityIPAddr);
-	register_method("getIdentitySteamID", &SteamServer::getIdentitySteamID);
-	register_method("getIdentitySteamID64", &SteamServer::getIdentitySteamID64);
-	register_method("getIPAddresses", &SteamServer::getIPAddresses);
-	register_method("getIPv4", &SteamServer::getIPv4);
-	register_method("getPSNID", &SteamServer::getPSNID);
-	register_method("getStadiaID", &SteamServer::getStadiaID);
-	register_method("getXboxPairwiseID", &SteamServer::getXboxPairwiseID);
-	register_method("isAddressLocalHost", &SteamServer::isAddressLocalHost);
-	register_method("isIdentityInvalid", &SteamServer::isIdentityInvalid);
-	register_method("isIdentityLocalHost", &SteamServer::isIdentityLocalHost);
-	register_method("isIPv4", &SteamServer::isIPv4);
-	register_method("isIPv6AllZeros", &SteamServer::isIPv6AllZeros);
-	register_method("parseIdentityString", &SteamServer::parseIdentityString);
-	register_method("parseIPAddressString", &SteamServer::parseIPAddressString);
-	register_method("setGenericBytes", &SteamServer::setGenericBytes);
-	register_method("setGenericString", &SteamServer::setGenericString);
-	register_method("setIdentityIPAddr", &SteamServer::setIdentityIPAddr);
-	register_method("setIdentityLocalHost", &SteamServer::setIdentityLocalHost);
-	register_method("setIdentitySteamID", &SteamServer::setIdentitySteamID);
-	register_method("setIdentitySteamID64", &SteamServer::setIdentitySteamID64);
-	register_method("setIPv4", &SteamServer::setIPv4);
-	register_method("setIPv6", &SteamServer::setIPv6);
-	register_method("setIPv6LocalHost", &SteamServer::setIPv6LocalHost);
-	register_method("setPSNID", &SteamServer::setPSNID);
-	register_method("setStadiaID", &SteamServer::setStadiaID);
-	register_method("setXboxPairwiseID", &SteamServer::setXboxPairwiseID); 
-	register_method("toIdentityString", &SteamServer::toIdentityString);
-	register_method("toIPAddressString", &SteamServer::toIPAddressString);
-	
+
 	// NETWORKING UTILS BIND METHODS ////////////
 	register_method("checkPingDataUpToDate", &SteamServer::checkPingDataUpToDate);
 	register_method("convertPingLocationToString", &SteamServer::convertPingLocationToString);
@@ -5043,8 +4477,7 @@ void SteamServer::_register_methods(){
 	register_method("setTimeUpdatedDateRange", &SteamServer::setTimeUpdatedDateRange);
 
 
-	/////////////////////////////////////////////
-	// CALLBACK SIGNAL BINDS ////////////////////
+	// CALLBACK SIGNAL BINDS
 	/////////////////////////////////////////////
 	//
 	// STEAMWORKS SIGNALS ///////////////////////
@@ -5081,8 +4514,8 @@ void SteamServer::_register_methods(){
 	register_signal<SteamServer>("inventory_request_prices_result", "result", GODOT_VARIANT_TYPE_INT, "currency", GODOT_VARIANT_TYPE_STRING);
 
 	// NETWORKING SIGNALS ///////////////////////
-	register_signal<SteamServer>("p2p_session_request", "steam_id_remote", GODOT_VARIANT_TYPE_INT);
-	register_signal<SteamServer>("p2p_session_connect_fail", "steam_id_remote", GODOT_VARIANT_TYPE_INT, "session_error", GODOT_VARIANT_TYPE_INT);
+	register_signal<SteamServer>("p2p_session_request", "remote_steam_id", GODOT_VARIANT_TYPE_INT);
+	register_signal<SteamServer>("p2p_session_connect_fail", "remote_steam_id", GODOT_VARIANT_TYPE_INT, "session_error", GODOT_VARIANT_TYPE_INT);
 
 	// NETWORKING MESSAGES //////////////////////
 	register_signal<SteamServer>("network_messages_session_request", "identity", GODOT_VARIANT_TYPE_STRING);
@@ -5117,7 +4550,7 @@ void SteamServer::_register_methods(){
 	register_signal<SteamServer>("remove_app_dependency_result", "result", GODOT_VARIANT_TYPE_INT, "file_id", GODOT_VARIANT_TYPE_INT, "app_id", GODOT_VARIANT_TYPE_INT);
 	register_signal<SteamServer>("remove_ugc_dependency_result", "result", GODOT_VARIANT_TYPE_INT, "file_id", GODOT_VARIANT_TYPE_INT, "child_id", GODOT_VARIANT_TYPE_INT);
 	register_signal<SteamServer>("set_user_item_vote", "result", GODOT_VARIANT_TYPE_INT, "file_id", GODOT_VARIANT_TYPE_INT, "vote_up", GODOT_VARIANT_TYPE_BOOL);
-	register_signal<SteamServer>("start_playtime_tracking", "result", GODOT_VARIANT_TYPE_INT);
+	register_signal<SteamServer>("start_playtime_traciking", "result", GODOT_VARIANT_TYPE_INT);
 	register_signal<SteamServer>("ugc_query_completed", "handle", GODOT_VARIANT_TYPE_INT, "result", GODOT_VARIANT_TYPE_INT, "results_returned", GODOT_VARIANT_TYPE_INT, "total_matching", GODOT_VARIANT_TYPE_INT, "cached", GODOT_VARIANT_TYPE_BOOL);
 	register_signal<SteamServer>("stop_playtime_tracking", "result", GODOT_VARIANT_TYPE_INT);
 	register_signal<SteamServer>("item_updated", "result", GODOT_VARIANT_TYPE_INT, "accept_tos", GODOT_VARIANT_TYPE_BOOL);
