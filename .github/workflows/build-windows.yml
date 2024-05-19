@@ -88,4 +88,4 @@ jobs:
           path: bin/win64/godotsteam_server.dll
           if-no-files-found: error
           overwrite: true
-          retention-days: 144
+          retention-days: 14
