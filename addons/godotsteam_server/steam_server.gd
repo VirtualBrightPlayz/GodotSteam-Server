@@ -3,33 +3,33 @@ extends Node
 # Steam Server variables
 onready var SteamServer = preload("res://addons/godotsteam_server/godotsteam_server.gdns").new()
 
-var IS_ON_STEAM: bool = false
-var IS_SERVER_SECURE: bool = false
-var SERVER_GAME_PORT: int = 27015
-var SERVER_INITIALIZE: Dictionary = {}
-var SERVER_IP_ADDRESS: String = ""
-var SERVER_QUERY_PORT: int = 27015
-var SERVER_STEAM_ID: int = 0
-var SERVER_VERSION: String = ""
+var is_on_steam: bool = false
+var is_server_secure: bool = false
+var server_game_port: int = 27015
+var server_initialize: Dictionary = {}
+var server_ip_address: String = ""
+var server_query_port: int = 27015
+var server_steam_id: int = 0
+var server_version: String = ""
 
 
 func _ready() -> void:
 	# Initialize Steam Server
-	SERVER_INITIALIZE = SteamServer.steamInitEx(
-		SERVER_IP_ADDRESS,
-		SERVER_GAME_PORT,
-		SERVER_QUERY_PORT,
+	server_initialize = SteamServer.steamInitEx(
+		server_ip_address,
+		server_game_port,
+		server_query_port,
 		1,
-		SERVER_VERSION)
+		server_version)
 
-	print("[STEAM] Did Steam Server initialize?: "+str(SERVER_INITIALIZE))
-	if SERVER_INITIALIZE['status'] > 0:
+	print("[STEAM] Did Steam Server initialize?: %s" % server_initialize)
+	if server_initialize['status'] > 0:
 		# If Steam fails to start up, shut down the app
-		print("[STEAM] Failed to initialize Steam Server. "+str(INIT['verbal'])+" Shutting down...")
+		print("[STEAM] %s Shutting down..." % server_initialize['verbal'])
 #		get_tree().quit()
 	
-	SERVER_STEAM_ID = SteamServer.getServerSteamID()
-	IS_SERVER_SECURE = SteamServer.isServerSecure()
+	server_steam_id = SteamServer.getServerSteamID()
+	is_server_secure = SteamServer.isServerSecure()
 
 
 func _process(_delta: float) -> void:
