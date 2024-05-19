@@ -60,7 +60,7 @@ jobs:
           cp -r steamworks/public godotsteam_server/sdk
           cp -r steamworks/redistributable_bin godotsteam_server/sdk
           ls -la 
-          ls -la godotsteam/sdk
+          ls -la godotsteam_server/sdk
 
       # Compile Godot-CPP
       - name: Compile godot-cpp
