@@ -1,15 +1,14 @@
 # GodotSteam Server for GDNative
 An open-source and fully functional Steamworks SDK / API server module and plug-in for the Godot Game Engine (version 3.x). For the Windows, Linux, and Mac platforms.
 
-Additional flavors include:
-- [Godot 2.x](https://github.com/CoaguCo-Industries/GodotSteam/tree/godot2)
-- [Godot 3.x](https://github.com/CoaguCo-Industries/GodotSteam/tree/master)
-- [Godot 4.x](https://github.com/CoaguCo-Industries/GodotSteam/tree/godot4)
-- [GDExtension](https://github.com/CoaguCo-Industries/GodotSteam/tree/gdextension)
-- [GDNative](https://github.com/CoaguCo-Industries/GodotSteam/tree/gdnative)
-- [Server 3.x](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/godot3)
-- [Server 4.x](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/godot4)
-- [Server GDExtension](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/gdextension)
+Additional Flavors
+---
+Pre-Compiles | Plug-ins | Server | Examples/Demos
+--- | --- | --- | ---
+[Godot 2.x](https://github.com/CoaguCo-Industries/GodotSteam/tree/godot2)| [GDNative](https://github.com/CoaguCo-Industries/GodotSteam/tree/gdnative) | [Server 3.x](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/godot3) | [Godot 3.x](https://github.com/CoaguCo-Industries/GodotSteam-Example-Project/tree/godot3)
+[Godot 3.x](https://github.com/CoaguCo-Industries/GodotSteam/tree/godot3) | [GDExtension](https://github.com/CoaguCo-Industries/GodotSteam/tree/gdextension) | [Server 4.x](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/godot4) |  [Godot 4.x](https://github.com/CoaguCo-Industries/GodotSteam-Example-Project/tree/godot4)
+[Godot 4.x](https://github.com/CoaguCo-Industries/GodotSteam/tree/godot4) | --- | [GDNative](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/gdnative) | [Server 3.x](https://github.com/CoaguCo-Industries/GodotSteam-Example-Project/tree/server3)
+[Multiplayer Peer](https://github.com/CoaguCo-Industries/GodotSteam/tree/multiplayer-peer)| --- | [GDExtension](https://github.com/CoaguCo-Industries/GodotSteam-Server/tree/gdextension) | [Server 4.x](https://github.com/CoaguCo-Industries/GodotSteam-Example-Project/tree/server4)
 
 Documentation
 ----------
@@ -19,21 +18,19 @@ Feel free to chat with us about GodotSteam on the [CoaguCo Discord server](https
 
 Current Build
 ----------
-You can [download pre-compiled versions _(currently v3.0.1)_ of this repo here](https://github.com/CoaguCo-Industries/GodotSteam-Server/releases).
+You can [download pre-compiled versions of this repo here](https://github.com/CoaguCo-Industries/GodotSteam-Server/releases).
 
-**Version 3.0.1 Changes**
-- Changed: updated included Steam server script
-- Changed: how initialization functions work, passing empty string now uses default IP (expected behavior)
-- Fixed: incorrect verbal message from `serverInitEx`
-
-**Version 3.0 Changes**
-- Added: missing server functions from steam_gameserver.h
-- Added: missing enums for server modes
-- Added: in-editor documentation
-- Changed: various improvements under-the-hood
-- Changed: reorganized some constants
-- Removed: unused enums, signals, functions
-- Removed: unnecessary classes that are not part of the server build
+**Version 3.3 Changes**
+- Changed: constants list to add missing and remove unused
+- Changed: Networking Messages, Sockets, and Utils now use Steam IDs instead of identity system
+- Changed: various bits and pieces
+- Changed: IP logic for all related functions
+- Changed: `getResultStatus()` now returns the integer / enum
+- Changed: `getAuthSessionTicket()` now defaults to 0 for Steam ID
+- Fixed: wrong string IP conversions, ***thanks to jeremybeier***
+- Removed: Networking Types identity system and related bits
+- Removed: P2P Networking constants as they are duplicates of the P2PSend enum
+- Removed: `getIdentity()` as it is redundant now
 
 [You can read more change-logs here](https://godotsteam.com/changelog/server_gdnative/).
 
@@ -57,7 +54,7 @@ When exporting with the GDNative version, please use the normal Godot Engine tem
 
 Donate
 -------------
-Pull-requests are the best way to help the project out but you can also donate through [Github Sponsors](https://github.com/sponsors/Gramps), [Ko-Fi](https://ko-fi.com/grampsgarcia), or [Paypal](https://www.paypal.me/sithlordkyle)!
+Pull-requests are the best way to help the project out but you can also donate through [Github Sponsors](https://github.com/sponsors/Gramps)!
 
 License
 -------------
